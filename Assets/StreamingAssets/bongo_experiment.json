@@ -1,0 +1,44 @@
+{
+  "session_1": {
+    "experiment_name": "Bongo",
+    "use_vr": true,
+    "optional_params": {
+    },
+    "per_block_input_name": [
+      "vr_controller",
+      "vr_controller",
+      "vr_controller"
+    ],
+    "trials_in_block": [
+      4,
+      4,
+      4
+    ],
+    "per_block_task": [
+      "Bongo",
+      "Bongo",
+      "Bongo"
+    ],
+    "per_block_speed": [
+      0.1,
+      0.3,
+      0.2
+    ],
+    "per_block_spawn_delay": [
+      1.0,
+      0.5,
+      0.1
+    ],
+    "per_block_list_target_location": [
+      "ta1",
+      "ta1",
+      "ta1"
+    ],
+    "ta1": [
+      "4123",
+      "1234",
+      "2341",
+      "3214"
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "session_1": {
+    "experiment_name": "ObjectTransporter",
+    "use_vr": true,
+    "optional_params": {
+    },
+    "per_block_input_name": [
+      "null",
+      "null",
+      "null"
+    ],
+    "trials_in_block": [
+      4,
+      4,
+      4
+    ],
+    "per_block_task": [
+      "ObjectTransporter",
+      "ObjectTransporter",
+      "ObjectTransporter"
+    ],
+    "per_block_instruction": [
+      null,
+      null,
+      null
+    ],
+    "per_block_mesh": [
+      "Cube",
+      "Sphere",
+      "Cube"
+    ],
+	"per_block_list_target_location":[
+		"ta1",
+		"ta1",
+		"ta1"
+	],
+	"ta1" : [
+		"1002",
+		"0120",
+		"2001",
+		"0210"
+	],
+    "per_block_rotation": [
+      15,
+      35,
+      10
+    ]
+  }
+}

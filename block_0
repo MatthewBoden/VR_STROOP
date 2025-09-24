@@ -1,0 +1,36 @@
+{
+    "use_vr": true,
+    "input_name": "vr_controller",
+    "task": "projectile",
+    "rotation": 0,
+    "water_speed": 0,
+    "otherBall_water_speed": 0,
+    "debris_spawn_rate": 1,
+    "debris_count": 2,
+    "instruction": null,
+    "target_angle": [
+        -30,
+        0,
+        0,
+        -20,
+        -20,
+        -30
+    ],
+    "target_width": 0.5
+}    "target_pos_x": [
+        -0.5,
+        0,
+        0.5,
+        0,
+        -0.5,
+        0.5
+    ],
+    "target_pos_z": [
+        0.5,
+        0.5,
+        1,
+        1,
+        0.75,
+        0.75
+    ]
+}

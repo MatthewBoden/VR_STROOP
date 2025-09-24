@@ -1,0 +1,96 @@
+{
+  "session_1": {
+    "experiment_name": "reach_to_target",
+    "use_vr": true,
+    "optional_params": {
+      "linkPseudoRandom": [
+        "per_block_list_target_angle",
+        "per_block_list_test"
+      ]
+    },
+	"per_block_input_name": [
+	"mouse",
+	"mouse",
+	"mouse"
+	],
+    "trials_in_block": [
+      4,
+      4,
+      4
+    ],
+    "per_block_task": [
+      "slingShot",
+      "slingShot",
+      "slingShot"
+    ],
+    "per_block_rotation": [
+      30,
+      0,
+      30
+    ],
+    "per_block_instruction": [
+      null,
+      null,
+      null
+    ],
+    "per_block_list_target_angle": [
+      "ta1",
+      "ta1",
+      "ta2"
+    ],
+    "per_block_list_test": [
+      "ta3", 
+      "ta3", 
+      "ta4"
+    ],
+    "ta1": [90, 45, 125, 100],
+    "ta2": [50, 130, 70, 110],
+    "ta3": [90, 45, 125, 100],
+    "ta4": [50, 130, 70,110],
+    "ins1": "Reach to the target as fast as possible."
+  },
+  "session_2": {
+    "experiment_name": "reach_to_target",
+    "use_vr": false,
+    "optional_params": {
+      "linkPseudoRandom": [
+        "per_block_list_target_angle",
+        "per_block_list_test"
+      ]
+    },
+    "trials_in_block": [
+      4,
+      4,
+      4
+    ],
+    "per_block_task": [
+      "sling_shot",
+      "sling_shot",
+      "sling_shot"
+    ],
+    "per_block_rotation": [
+      30,
+      0,
+      30
+    ],
+    "per_block_instruction": [
+      null,
+      null,
+      null
+    ],
+    "per_block_list_target_angle": [
+      "ta1",
+      "ta1",
+      "ta2"
+    ],
+    "per_block_list_test": [
+      "ta3", 
+      "ta3", 
+      "ta4"],
+    "ta1": [1, 2, 3, 4],
+    "ta2": [5, 6, 7, 8],
+    "ta3": [1, 2, 3, 4],
+    "ta4": [5, 6, 7,8],
+    "ins1": "Reach to the target as fast as possible."
+  }
+}

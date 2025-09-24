@@ -1,0 +1,45 @@
+{
+  "session_1": {
+    "experiment_name": "projectile",
+    "use_vr": false,
+    "optional_params": {
+    },
+	"per_block_input_name": [
+	"mouse",
+	"mouse",
+	"mouse"
+	],
+    "trials_in_block": [
+      3,
+      3,
+      3
+    ],
+    "per_block_task": [
+      "invisible",
+      "projectile",
+      "projectile"
+    ],
+    "per_block_rotation": [
+      30,
+      0,
+      30
+    ],
+    "per_block_water_force": [
+      20,
+      50,
+      10
+    ],
+    "per_block_instruction": [
+      null,
+      null,
+      null
+    ],
+    "per_block_list_target_angle": [
+      "ta1",
+      "ta1",
+      "ta1"
+    ],
+    "ta1": [0, 0, 0],
+    "ins1": "Toss the ball to the target."
+  }
+}
