@@ -10,8 +10,8 @@
     "completed",
     "response",
     "correct",
-    "reaction_time",
-    "block_number",
+    "reaction_time"
+]    "block_number",
     "trial_in_block",
     "total_correct",
     "total_score",

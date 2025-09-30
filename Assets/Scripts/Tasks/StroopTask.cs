@@ -186,6 +186,11 @@ public class StroopTask : BaseTask
                             Debug.Log("Dock hit - advancing to next block");
                             waitingForNextBlock = false;
                             
+                            // Restore UI elements for new block
+                            if (wordDisplayCanvas != null)
+                                wordDisplayCanvas.SetActive(true);
+                            // Note: buttonContainer will be enabled in StartTrial()
+                            
                             // Try to advance to next block
                             try
                             {
@@ -255,9 +260,16 @@ public class StroopTask : BaseTask
     private void StartTrial()
     {
         Debug.Log($"=== STARTING TRIAL {ExperimentController.Instance.Session.CurrentTrial.numberInBlock} ===");
+        Debug.Log($"Current block number: {ExperimentController.Instance.Session.currentBlockNum}");
         
         // Reset block waiting flag
         waitingForNextBlock = false;
+        
+        // Ensure UI elements are visible
+        if (wordDisplayCanvas != null)
+            wordDisplayCanvas.SetActive(true);
+        if (buttonContainer != null)
+            buttonContainer.SetActive(true);
         
         // Generate trial parameters
         GenerateTrialParameters();
@@ -272,6 +284,12 @@ public class StroopTask : BaseTask
         
         // Activate buttons for interaction
         ActivateButtons(true);
+        
+        // Enable button container for trial
+        if (buttonContainer != null)
+        {
+            buttonContainer.SetActive(true);
+        }
         
         // Hide dock during trial
         if (dock != null)
@@ -413,8 +431,10 @@ public class StroopTask : BaseTask
         // Show UI elements
         if (wordDisplayCanvas != null)
             wordDisplayCanvas.SetActive(true);
+        
+        // Disable button container when dock is active
         if (buttonContainer != null)
-            buttonContainer.SetActive(true);
+            buttonContainer.SetActive(false);
         
         // Ensure buttons are disabled initially - they will be enabled when trials start
         ActivateButtons(false);
@@ -509,6 +529,12 @@ public class StroopTask : BaseTask
             Debug.Log($"Available trial data keys: {string.Join(", ", trialDataDict.Keys)}");
             Debug.Log($"Looking for trial: {currentTrialName}");
             Debug.Log($"Trial found in data: {trialDataDict.ContainsKey(currentTrialName)}");
+            
+            // Debug: Check if the trial name matches any available keys
+            if (!trialDataDict.ContainsKey(currentTrialName))
+            {
+                Debug.LogWarning($"Trial '{currentTrialName}' not found in data. Available keys: {string.Join(", ", trialDataDict.Keys)}");
+            }
             
                 if (trialDataDict.ContainsKey(currentTrialName))
                 {
@@ -867,6 +893,12 @@ public class StroopTask : BaseTask
                 dock.GetComponent<Target>().enabled = true;
                 dock.GetComponent<MeshCollider>().enabled = true;
                 dock.GetComponent<Target>().ResetTarget();
+            }
+            
+            // Disable button container when dock is active
+            if (buttonContainer != null)
+            {
+                buttonContainer.SetActive(false);
             }
             
             // Reset step to wait for dock press

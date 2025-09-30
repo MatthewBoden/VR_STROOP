@@ -5,16 +5,16 @@
     "speed": 0,
     "spawn_delay": 0.5,
     "target_location": [
-        "incongruent_trial_1",
-        "incongruent_trial_10",
-        "incongruent_trial_6",
-        "incongruent_trial_4",
-        "incongruent_trial_9",
-        "incongruent_trial_3",
         "incongruent_trial_8",
+        "incongruent_trial_9",
+        "incongruent_trial_2",
+        "incongruent_trial_6",
         "incongruent_trial_5",
         "incongruent_trial_7",
-        "incongruent_trial_2"
+        "incongruent_trial_10",
+        "incongruent_trial_3",
+        "incongruent_trial_4",
+        "incongruent_trial_1"
     ]
 }   ]
 }.5
