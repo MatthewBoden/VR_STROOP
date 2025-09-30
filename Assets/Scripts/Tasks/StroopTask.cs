@@ -102,6 +102,9 @@ public class StroopTask : BaseTask
     private bool isInDockTrigger = false;
     private bool isInButtonTrigger = false;
     private string currentButtonInTrigger = "";
+    
+    // Block progression tracking
+    private bool waitingForNextBlock = false;
 
     void Start()
     {
@@ -177,25 +180,46 @@ public class StroopTask : BaseTask
                     
                     if (dockHit)
                     {
-                        Debug.Log("Dock hit - starting trial");
-                        dock.GetComponent<Target>().ResetTarget();
-                        audioSource.clip = buttonClickSFX;
-                        audioSource.Play();
-                        
-                        // Disable dock when hit to prevent multiple triggers
-                        dock.GetComponent<Target>().enabled = false;
-                        dock.GetComponent<MeshCollider>().enabled = false;
-                        dock.SetActive(false);
-
-                        // Check if this is the start of a new block or first trial
-                        if (ExperimentController.Instance.Session.CurrentTrial.numberInBlock == 1)
+                        if (waitingForNextBlock)
                         {
-                            // Starting first trial of a block
-                            startTime = Time.time;
+                            // Dock hit after block completion - advance to next block
+                            Debug.Log("Dock hit - advancing to next block");
+                            waitingForNextBlock = false;
+                            
+                            // Try to advance to next block
+                            try
+                            {
+                                // UXF doesn't have EndCurrentBlock, so we'll let it handle block progression automatically
+                                Debug.Log("Block completed, UXF should advance to next block automatically");
+                            }
+                            catch (System.Exception e)
+                            {
+                                Debug.LogWarning($"Could not end block automatically: {e.Message}");
+                            }
                         }
+                        else
+                        {
+                            // Dock hit for starting trial
+                            Debug.Log("Dock hit - starting trial");
+                            dock.GetComponent<Target>().ResetTarget();
+                            audioSource.clip = buttonClickSFX;
+                            audioSource.Play();
+                            
+                            // Disable dock when hit to prevent multiple triggers
+                            dock.GetComponent<Target>().enabled = false;
+                            dock.GetComponent<MeshCollider>().enabled = false;
+                            dock.SetActive(false);
 
-                        StartTrial();
-                        IncrementStep();
+                            // Check if this is the start of a new block or first trial
+                            if (ExperimentController.Instance.Session.CurrentTrial.numberInBlock == 1)
+                            {
+                                // Starting first trial of a block
+                                startTime = Time.time;
+                            }
+
+                            StartTrial();
+                            IncrementStep();
+                        }
                     }
                 }
                 break;
@@ -232,6 +256,9 @@ public class StroopTask : BaseTask
     {
         Debug.Log($"=== STARTING TRIAL {ExperimentController.Instance.Session.CurrentTrial.numberInBlock} ===");
         
+        // Reset block waiting flag
+        waitingForNextBlock = false;
+        
         // Generate trial parameters
         GenerateTrialParameters();
         
@@ -240,6 +267,8 @@ public class StroopTask : BaseTask
         
         // Setup response buttons
         SetupResponseButtons();
+        
+        Debug.Log($"After StartTrial: Word='{currentWord}', Color={currentColor}, Correct='{correctAnswer}'");
         
         // Activate buttons for interaction
         ActivateButtons(true);
@@ -430,12 +459,14 @@ public class StroopTask : BaseTask
                 try
                 {
                     blockType = blockSettings.GetString("block_type");
+                    Debug.Log($"Found block_type in settings: {blockType}");
                 }
                 catch
                 {
                     try
                     {
                         string taskType = blockSettings.GetString("task");
+                        Debug.Log($"Found task in settings: {taskType}");
                         if (taskType.ToLower().Contains("incongruent"))
                         {
                             blockType = "incongruent";
@@ -445,6 +476,7 @@ public class StroopTask : BaseTask
                     {
                         // If we can't determine block type, try alternating
                         blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+                        Debug.Log($"Using alternating block type: {blockType} (block {blockNumber})");
                     }
                 }
             }
@@ -452,10 +484,11 @@ public class StroopTask : BaseTask
             {
                 // If we can't determine block type, try alternating
                 blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+                Debug.Log($"Using alternating block type (fallback): {blockType} (block {blockNumber})");
             }
             
             currentTrialName = $"{blockType}_trial_{trialNumber}";
-            Debug.LogWarning($"trial_name not found, using generated name: {currentTrialName}");
+            Debug.LogWarning($"trial_name not found, using generated name: {currentTrialName} (blockType: {blockType}, trialNumber: {trialNumber}, blockNumber: {blockNumber})");
         }
         
         // Get trial data from session settings
@@ -475,6 +508,7 @@ public class StroopTask : BaseTask
         {
             Debug.Log($"Available trial data keys: {string.Join(", ", trialDataDict.Keys)}");
             Debug.Log($"Looking for trial: {currentTrialName}");
+            Debug.Log($"Trial found in data: {trialDataDict.ContainsKey(currentTrialName)}");
             
                 if (trialDataDict.ContainsKey(currentTrialName))
                 {
@@ -493,6 +527,7 @@ public class StroopTask : BaseTask
                     if (colorMap.ContainsKey(colorName))
                     {
                         currentColor = colorMap[colorName];
+                        Debug.Log($"Color converted: '{colorName}' -> {currentColor}");
                     }
                     else
                     {
@@ -589,12 +624,14 @@ public class StroopTask : BaseTask
                 try
                 {
                     blockType = blockSettings.GetString("block_type");
+                    Debug.Log($"Found block_type in settings: {blockType}");
                 }
                 catch
                 {
                     try
                     {
                         string taskType = blockSettings.GetString("task");
+                        Debug.Log($"Found task in settings: {taskType}");
                         if (taskType.ToLower().Contains("incongruent"))
                         {
                             blockType = "incongruent";
@@ -604,6 +641,7 @@ public class StroopTask : BaseTask
                     {
                         // If we can't determine block type, try alternating
                         blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+                        Debug.Log($"Using alternating block type: {blockType} (block {blockNumber})");
                     }
                 }
             }
@@ -611,6 +649,7 @@ public class StroopTask : BaseTask
             {
                 // If we can't determine block type, try alternating
                 blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+                Debug.Log($"Using alternating block type (fallback): {blockType} (block {blockNumber})");
             }
             
             currentTrialName = $"{blockType}_trial_{trialNumber}";
@@ -640,6 +679,11 @@ public class StroopTask : BaseTask
                         {
                             buttonOptions.Add(item.ToString());
                         }
+                        Debug.Log($"Button options from JSON: [{string.Join(", ", buttonOptions)}]");
+                    }
+                    else
+                    {
+                        Debug.LogError($"Button options is not a list: {buttonOptionsJson?.GetType()}");
                     }
                     
                         // Update button texts with options from JSON
@@ -828,7 +872,19 @@ public class StroopTask : BaseTask
             // Reset step to wait for dock press
             currentStep = 0;
             
-            Debug.Log("Dock shown for next trial. Press to continue.");
+            Debug.Log($"Dock shown for next trial. Current trial: {currentTrialInBlock}/{trialsInCurrentBlock}. Press to continue.");
+            
+            // Try to advance to the next trial in UXF system
+            try
+            {
+                // End current trial and advance to next
+                ExperimentController.Instance.Session.EndCurrentTrial();
+                Debug.Log("Trial ended, should advance to next trial automatically");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"Could not end trial automatically: {e.Message}");
+            }
         }
     }
 
@@ -845,6 +901,9 @@ public class StroopTask : BaseTask
         dock.GetComponent<Target>().enabled = true;
         dock.GetComponent<MeshCollider>().enabled = true;
         dock.GetComponent<Target>().ResetTarget();
+        
+        // Set flag to indicate we're waiting for next block
+        waitingForNextBlock = true;
         
         // Reset step to wait for dock press
         currentStep = 0;
@@ -1029,6 +1088,12 @@ public class StroopTask : BaseTask
 
         // Update scoreboard
         UpdateScoreboard();
+
+        // Mark trial as completed in UXF system
+        ExperimentController.Instance.Session.CurrentTrial.result["completed"] = true;
+        ExperimentController.Instance.Session.CurrentTrial.result["response"] = response;
+        ExperimentController.Instance.Session.CurrentTrial.result["correct"] = isCorrect;
+        ExperimentController.Instance.Session.CurrentTrial.result["reaction_time"] = reactionTime;
 
         // Complete the trial
         StartCoroutine(CompleteTrial());
