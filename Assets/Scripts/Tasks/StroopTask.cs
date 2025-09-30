@@ -29,8 +29,8 @@ public class StroopTask : BaseTask
     [SerializeField] TextMeshProUGUI wordText;
     [Header("Button Setup")]
     [SerializeField] GameObject buttonContainer;
-    [SerializeField] List<GameObject> buttonObjects = new List<GameObject>(); // Your 4 button objects
-    [SerializeField] List<TextMeshProUGUI> buttonTexts = new List<TextMeshProUGUI>();
+    [SerializeField] public List<GameObject> buttonObjects = new List<GameObject>(); // Your 4 button objects
+    [SerializeField] public List<TextMeshProUGUI> buttonTexts = new List<TextMeshProUGUI>();
     
     // Button labels are now managed by JSON - no longer serialized
     private List<string> buttonLabels = new List<string>();
@@ -97,6 +97,11 @@ public class StroopTask : BaseTask
     private float originalCursorY = 0f;
     private bool isLeftMouseHeld = false;
     private float cursorTransitionSpeed = 10f;
+    
+    // Trigger detection for dock and buttons
+    private bool isInDockTrigger = false;
+    private bool isInButtonTrigger = false;
+    private string currentButtonInTrigger = "";
 
     void Start()
     {
@@ -124,6 +129,25 @@ public class StroopTask : BaseTask
             
             // Update cursor position based on left mouse button state
             UpdateCursorPosition();
+            
+            // Check for cursor collision with buttons when cursor is at Y=0
+            // Add a small delay to prevent immediate collision after trial start
+            if (isLeftMouseHeld && trialActive && !responseGiven && (Time.time - trialStartTime) > 0.1f)
+            {
+                // Debug: Log trigger states
+                if (isInButtonTrigger)
+                {
+                    Debug.Log($"Cursor is in button trigger: {currentButtonInTrigger}");
+                }
+                
+                // ONLY use trigger-based detection - no fallback to prevent plane interaction
+                if (isInButtonTrigger && !string.IsNullOrEmpty(currentButtonInTrigger))
+                {
+                    Debug.Log($"Triggering button response: {currentButtonInTrigger}");
+                    OnButtonResponse(currentButtonInTrigger);
+                }
+                // Removed fallback to prevent plane collider interaction
+            }
         }
         
         switch (currentStep)
@@ -140,35 +164,28 @@ public class StroopTask : BaseTask
                     // Check for 2D mode dock interaction (cursor collision or mouse click)
                     else
                     {
-                        // Check if cursor is colliding with dock (only when cursor is at Y=0)
-                        if (cursor != null && dock != null && isLeftMouseHeld)
+                        // Check if cursor is in dock trigger (only when cursor is at Y=0)
+                        if (isLeftMouseHeld && isInDockTrigger)
                         {
-                            float distance = Vector3.Distance(cursor.transform.position, dock.transform.position);
-                            dockHit = distance < 0.1f; // Adjust this threshold as needed
+                            dockHit = true;
+                            Debug.Log("Cursor is in dock trigger");
                         }
                         
-                        // Also check for mouse click on dock (raycast) - but only if not clicking on buttons
-                        if (!dockHit && Input.GetMouseButtonDown(0))
-                        {
-                            // First check if we're clicking on a button
-                            bool clickingOnButton = CheckMouseClickOnButtons();
-                            if (!clickingOnButton)
-                            {
-                                dockHit = CheckMouseClickOnDock();
-                            }
-                        }
+                        // Disable mouse click dock detection for now - only use cursor collision
+                        // This prevents dock from being triggered by any screen click
                     }
                     
                     if (dockHit)
                     {
+                        Debug.Log("Dock hit - starting trial");
                         dock.GetComponent<Target>().ResetTarget();
                         audioSource.clip = buttonClickSFX;
                         audioSource.Play();
                         
-                        // Don't disable dock immediately - let it stay visible during trial
-                        // dock.GetComponent<Target>().enabled = false;
-                        // dock.GetComponent<MeshCollider>().enabled = false;
-                        // dock.SetActive(false);
+                        // Disable dock when hit to prevent multiple triggers
+                        dock.GetComponent<Target>().enabled = false;
+                        dock.GetComponent<MeshCollider>().enabled = false;
+                        dock.SetActive(false);
 
                         // Check if this is the start of a new block or first trial
                         if (ExperimentController.Instance.Session.CurrentTrial.numberInBlock == 1)
@@ -213,6 +230,8 @@ public class StroopTask : BaseTask
 
     private void StartTrial()
     {
+        Debug.Log($"=== STARTING TRIAL {ExperimentController.Instance.Session.CurrentTrial.numberInBlock} ===");
+        
         // Generate trial parameters
         GenerateTrialParameters();
         
@@ -235,6 +254,17 @@ public class StroopTask : BaseTask
         trialActive = true;
         responseGiven = false;
         trialStartTime = Time.time;
+        
+        // Move cursor away from buttons to prevent immediate collision
+        if (cursor != null && isLeftMouseHeld)
+        {
+            // Move cursor to a safe position away from buttons
+            Vector3 safePosition = new Vector3(0, 0, 0); // Center position
+            cursor.transform.position = safePosition;
+            Debug.Log($"Moved cursor to safe position: {safePosition}");
+        }
+        
+        Debug.Log($"Trial {ExperimentController.Instance.Session.CurrentTrial.numberInBlock} is now ACTIVE");
         
         Debug.Log($"Trial {ExperimentController.Instance.Session.CurrentTrial.numberInBlock}: Word='{currentWord}', Color={currentColor}, Correct='{correctAnswer}'");
     }
@@ -276,6 +306,25 @@ public class StroopTask : BaseTask
         {
             originalCursorY = cursor.transform.position.y;
             Debug.Log($"Original cursor Y position: {originalCursorY}");
+            
+            // Ensure cursor has a collider for collision detection
+            if (cursor.GetComponent<Collider>() == null)
+            {
+                // Add a small box collider to the cursor for collision detection
+                BoxCollider cursorCollider = cursor.AddComponent<BoxCollider>();
+                cursorCollider.size = new Vector3(0.1f, 0.1f, 0.1f); // Small collider
+                cursorCollider.isTrigger = true; // Make it a trigger so it doesn't interfere with physics
+                Debug.Log("Added collider to cursor for collision detection");
+            }
+            
+            // Add trigger detection component to cursor
+            CursorTriggerDetector triggerDetector = cursor.GetComponent<CursorTriggerDetector>();
+            if (triggerDetector == null)
+            {
+                triggerDetector = cursor.AddComponent<CursorTriggerDetector>();
+                triggerDetector.Initialize(this);
+                Debug.Log("Added trigger detector to cursor");
+            }
         }
         
         // Setup buttons
@@ -368,9 +417,45 @@ public class StroopTask : BaseTask
         }
         catch (System.Collections.Generic.KeyNotFoundException)
         {
-            // Fallback: use trial number as trial name
-            currentTrialName = $"trial_{ExperimentController.Instance.Session.CurrentTrial.numberInBlock}";
-            Debug.LogWarning($"trial_name not found, using fallback: {currentTrialName}");
+            // Try to determine trial type and create proper trial name
+            int trialNumber = ExperimentController.Instance.Session.CurrentTrial.numberInBlock;
+            int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
+            
+            // Try to get block type from session settings
+            string blockType = "congruent"; // default
+            try
+            {
+                // Try to get block type from current block settings
+                var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
+                try
+                {
+                    blockType = blockSettings.GetString("block_type");
+                }
+                catch
+                {
+                    try
+                    {
+                        string taskType = blockSettings.GetString("task");
+                        if (taskType.ToLower().Contains("incongruent"))
+                        {
+                            blockType = "incongruent";
+                        }
+                    }
+                    catch
+                    {
+                        // If we can't determine block type, try alternating
+                        blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+                    }
+                }
+            }
+            catch
+            {
+                // If we can't determine block type, try alternating
+                blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+            }
+            
+            currentTrialName = $"{blockType}_trial_{trialNumber}";
+            Debug.LogWarning($"trial_name not found, using generated name: {currentTrialName}");
         }
         
         // Get trial data from session settings
@@ -391,16 +476,18 @@ public class StroopTask : BaseTask
             Debug.Log($"Available trial data keys: {string.Join(", ", trialDataDict.Keys)}");
             Debug.Log($"Looking for trial: {currentTrialName}");
             
-            if (trialDataDict.ContainsKey(currentTrialName))
-            {
-                var currentTrialData = trialDataDict[currentTrialName] as System.Collections.Generic.Dictionary<string, object>;
-                
-                if (currentTrialData != null)
+                if (trialDataDict.ContainsKey(currentTrialName))
                 {
-                    // Extract trial parameters from JSON
-                    currentWord = currentTrialData["displayed_word"].ToString();
-                    string colorName = currentTrialData["displayed_color"].ToString();
-                    correctAnswer = currentTrialData["correct_answer"].ToString();
+                    var currentTrialData = trialDataDict[currentTrialName] as System.Collections.Generic.Dictionary<string, object>;
+                    
+                    if (currentTrialData != null)
+                    {
+                        // Extract trial parameters from JSON
+                        currentWord = currentTrialData["displayed_word"].ToString();
+                        string colorName = currentTrialData["displayed_color"].ToString();
+                        correctAnswer = currentTrialData["correct_answer"].ToString();
+                        
+                        Debug.Log($"Found trial data for {currentTrialName}: Word='{currentWord}', Color='{colorName}', Correct='{correctAnswer}'");
                     
                     // Convert color name to Unity Color
                     if (colorMap.ContainsKey(colorName))
@@ -476,6 +563,7 @@ public class StroopTask : BaseTask
     {
         wordText.text = currentWord;
         wordText.color = currentColor;
+        Debug.Log($"DisplayWord: Text='{currentWord}', Color={currentColor}, CorrectAnswer='{correctAnswer}'");
     }
 
     private void SetupResponseButtons()
@@ -488,24 +576,62 @@ public class StroopTask : BaseTask
         }
         catch (System.Collections.Generic.KeyNotFoundException)
         {
-            // Fallback: use trial number as trial name
-            currentTrialName = $"trial_{ExperimentController.Instance.Session.CurrentTrial.numberInBlock}";
-            Debug.LogWarning($"trial_name not found, using fallback: {currentTrialName}");
+            // Try to determine trial type and create proper trial name
+            int trialNumber = ExperimentController.Instance.Session.CurrentTrial.numberInBlock;
+            int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
+            
+            // Try to get block type from session settings
+            string blockType = "congruent"; // default
+            try
+            {
+                // Try to get block type from current block settings
+                var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
+                try
+                {
+                    blockType = blockSettings.GetString("block_type");
+                }
+                catch
+                {
+                    try
+                    {
+                        string taskType = blockSettings.GetString("task");
+                        if (taskType.ToLower().Contains("incongruent"))
+                        {
+                            blockType = "incongruent";
+                        }
+                    }
+                    catch
+                    {
+                        // If we can't determine block type, try alternating
+                        blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+                    }
+                }
+            }
+            catch
+            {
+                // If we can't determine block type, try alternating
+                blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+            }
+            
+            currentTrialName = $"{blockType}_trial_{trialNumber}";
+            Debug.LogWarning($"trial_name not found, using generated name: {currentTrialName}");
         }
         var trialData = ExperimentController.Instance.Session.settings.GetObject("trial_data");
         
         // Cast the trial data to a dictionary
         if (trialData is System.Collections.Generic.Dictionary<string, object> trialDataDict)
         {
-            if (trialDataDict.ContainsKey(currentTrialName))
-            {
-                var currentTrialData = trialDataDict[currentTrialName] as System.Collections.Generic.Dictionary<string, object>;
-                
-                if (currentTrialData != null)
+                if (trialDataDict.ContainsKey(currentTrialName))
                 {
-                    // Get button options from JSON
-                    var buttonOptionsJson = currentTrialData["button_options"];
-                    List<string> buttonOptions = new List<string>();
+                    var currentTrialData = trialDataDict[currentTrialName] as System.Collections.Generic.Dictionary<string, object>;
+                    
+                    if (currentTrialData != null)
+                    {
+                        Debug.Log($"Found trial data for buttons: {currentTrialName}");
+                        
+                        // Get button options from JSON
+                        var buttonOptionsJson = currentTrialData["button_options"];
+                        List<string> buttonOptions = new List<string>();
                     
                     // Convert JSON array to List<string> - handle as object array
                     if (buttonOptionsJson is System.Collections.IList jsonArray)
@@ -516,14 +642,15 @@ public class StroopTask : BaseTask
                         }
                     }
                     
-                    // Update button texts with options from JSON
-                    for (int i = 0; i < buttonTexts.Count && i < buttonOptions.Count; i++)
-                    {
-                        if (buttonTexts[i] != null)
+                        // Update button texts with options from JSON
+                        for (int i = 0; i < buttonTexts.Count && i < buttonOptions.Count; i++)
                         {
-                            buttonTexts[i].text = buttonOptions[i];
+                            if (buttonTexts[i] != null)
+                            {
+                                buttonTexts[i].text = buttonOptions[i];
+                                Debug.Log($"Button {i} text set to: {buttonOptions[i]}");
+                            }
                         }
-                    }
                     
                     // Update button labels for collision detection
                     buttonLabels.Clear();
@@ -552,7 +679,7 @@ public class StroopTask : BaseTask
             }
             else
             {
-                Debug.LogError($"Could not find trial data for: {currentTrialName}");
+                Debug.LogWarning($"Could not find trial data for: {currentTrialName} - using fallback buttons");
                 SetupFallbackButtons();
             }
         }
@@ -568,7 +695,7 @@ public class StroopTask : BaseTask
     /// </summary>
     private void SetupFallbackButtons()
     {
-        Debug.LogWarning("Using fallback button setup");
+        Debug.LogWarning("=== SETTING UP FALLBACK BUTTONS ===");
         
         // Simple fallback button options
         string[] buttonOptions = { "red", "blue", "green", "yellow" };
@@ -659,6 +786,15 @@ public class StroopTask : BaseTask
 
     private IEnumerator CompleteTrial()
     {
+        Debug.Log($"CompleteTrial called - completedTrials: {completedTrials}, totalCorrect: {totalCorrect}");
+        
+        // Only proceed if we actually have a response
+        if (!responseGiven)
+        {
+            Debug.LogWarning("CompleteTrial called without a response - this should not happen!");
+            yield break;
+        }
+        
         // Wait 0.5 seconds before next trial
         yield return new WaitForSeconds(0.5f);
         
@@ -666,6 +802,8 @@ public class StroopTask : BaseTask
         List<int> trialsPerBlock = ExperimentController.Instance.Session.CurrentBlock.settings.GetIntList("trials_in_block");
         int currentTrialInBlock = ExperimentController.Instance.Session.CurrentTrial.numberInBlock;
         int trialsInCurrentBlock = trialsPerBlock[ExperimentController.Instance.Session.currentBlockNum - 1];
+        
+        Debug.Log($"Trial check - currentTrialInBlock: {currentTrialInBlock}, trialsInCurrentBlock: {trialsInCurrentBlock}");
         
         if (currentTrialInBlock >= trialsInCurrentBlock)
         {
@@ -846,8 +984,13 @@ public class StroopTask : BaseTask
     // Method to handle button responses from the button objects
     public void OnButtonResponse(string response)
     {
+        Debug.Log($"OnButtonResponse called with: {response}, trialActive: {trialActive}, responseGiven: {responseGiven}");
+        
         if (!trialActive || responseGiven)
+        {
+            Debug.LogWarning("OnButtonResponse ignored - trial not active or response already given");
             return;
+        }
 
         responseGiven = true;
         trialActive = false;
@@ -861,6 +1004,7 @@ public class StroopTask : BaseTask
 
         // Check if response is correct
         bool isCorrect = response == correctAnswer;
+        Debug.Log($"Response comparison: '{response}' == '{correctAnswer}' = {isCorrect}");
         if (isCorrect)
         {
             totalCorrect++;
@@ -914,6 +1058,64 @@ public class StroopTask : BaseTask
     }
     
     /// <summary>
+    /// Check if cursor collides with any button when at Y=0 using actual collider detection
+    /// </summary>
+    private void CheckCursorButtonCollision()
+    {
+        if (cursor == null) return;
+        
+        // Use collider detection instead of distance-based detection
+        Collider cursorCollider = cursor.GetComponent<Collider>();
+        if (cursorCollider == null) return;
+        
+        // Check for actual collider overlaps with button colliders
+        for (int i = 0; i < buttonObjects.Count; i++)
+        {
+            if (buttonObjects[i] != null)
+            {
+                Collider buttonCollider = buttonObjects[i].GetComponent<Collider>();
+                if (buttonCollider != null)
+                {
+                    // Check if cursor collider is overlapping with button collider
+                    if (cursorCollider.bounds.Intersects(buttonCollider.bounds))
+                    {
+                        string buttonLabel = buttonTexts[i].text;
+                        Debug.Log($"Cursor collider intersected with button: {buttonLabel}");
+                        OnButtonResponse(buttonLabel);
+                        break; // Only trigger one button at a time
+                    }
+                }
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Fallback button collision detection using distance-based method
+    /// </summary>
+    private void CheckCursorButtonCollisionFallback()
+    {
+        if (cursor == null) return;
+        
+        // Check collision with each button using distance
+        for (int i = 0; i < buttonObjects.Count; i++)
+        {
+            if (buttonObjects[i] != null)
+            {
+                float distance = Vector3.Distance(cursor.transform.position, buttonObjects[i].transform.position);
+                
+                // If cursor is close enough to button, trigger selection
+                if (distance < 0.15f) // Slightly larger threshold for fallback
+                {
+                    string buttonLabel = buttonTexts[i].text;
+                    Debug.Log($"Fallback: Cursor near button {buttonLabel} at distance {distance}");
+                    OnButtonResponse(buttonLabel);
+                    break; // Only trigger one button at a time
+                }
+            }
+        }
+    }
+    
+    /// <summary>
     /// Check if mouse click hits any button using raycast
     /// </summary>
     private bool CheckMouseClickOnButtons()
@@ -957,16 +1159,127 @@ public class StroopTask : BaseTask
         Ray ray = prefabCamera.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
         
-        // Check if the ray hits the dock
+        // Check if the ray hits the dock specifically
         if (Physics.Raycast(ray, out hit))
         {
+            // Make sure we hit the dock and not something else
             if (hit.collider.gameObject == dock)
             {
-                Debug.Log("Mouse clicked on dock");
+                Debug.Log("Mouse clicked directly on dock");
                 return true;
             }
+            else
+            {
+                Debug.Log($"Mouse clicked on {hit.collider.gameObject.name}, not dock");
+            }
+        }
+        else
+        {
+            Debug.Log("Mouse click didn't hit anything");
         }
         
         return false;
+    }
+    
+    /// <summary>
+    /// Set dock trigger state (called by CursorTriggerDetector)
+    /// </summary>
+    public void SetDockTriggerState(bool inTrigger)
+    {
+        isInDockTrigger = inTrigger;
+    }
+    
+    /// <summary>
+    /// Set button trigger state (called by CursorTriggerDetector)
+    /// </summary>
+    public void SetButtonTriggerState(bool inTrigger, string buttonLabel)
+    {
+        isInButtonTrigger = inTrigger;
+        currentButtonInTrigger = buttonLabel;
+    }
+}
+
+/// <summary>
+/// Component to handle trigger detection for the cursor
+/// </summary>
+public class CursorTriggerDetector : MonoBehaviour
+{
+    private StroopTask stroopTask;
+    
+    public void Initialize(StroopTask task)
+    {
+        stroopTask = task;
+    }
+    
+    void OnTriggerEnter(Collider other)
+    {
+        if (stroopTask == null) return;
+        
+        // Only respond to objects with trigger colliders - ignore plane colliders
+        if (!other.isTrigger)
+        {
+            Debug.Log($"Ignoring non-trigger collider: {other.gameObject.name}");
+            return;
+        }
+        
+        // Check if we entered the dock trigger
+        if (other.gameObject.name == "Dock" || other.gameObject.CompareTag("Dock"))
+        {
+            stroopTask.SetDockTriggerState(true);
+            Debug.Log("Cursor entered dock trigger");
+        }
+        
+        // Check if we entered a button trigger (check both button object and its collider children)
+        for (int i = 0; i < stroopTask.buttonObjects.Count; i++)
+        {
+            if (stroopTask.buttonObjects[i] != null)
+            {
+                // Check if we hit the button object itself or any of its children (like colliders)
+                if (other.gameObject == stroopTask.buttonObjects[i] || 
+                    other.transform.IsChildOf(stroopTask.buttonObjects[i].transform))
+                {
+                    stroopTask.SetButtonTriggerState(true, stroopTask.buttonTexts[i].text);
+                    Debug.Log($"Cursor entered button trigger: {stroopTask.buttonTexts[i].text} (object: {other.gameObject.name})");
+                    break;
+                }
+            }
+        }
+        
+        // Debug: Log all trigger entries
+        Debug.Log($"Trigger entered: {other.gameObject.name}, Tag: {other.gameObject.tag}, IsTrigger: {other.isTrigger}");
+    }
+    
+    void OnTriggerExit(Collider other)
+    {
+        if (stroopTask == null) return;
+        
+        // Only respond to objects with trigger colliders - ignore plane colliders
+        if (!other.isTrigger)
+        {
+            return;
+        }
+        
+        // Check if we exited the dock trigger
+        if (other.gameObject.name == "Dock" || other.gameObject.CompareTag("Dock"))
+        {
+            stroopTask.SetDockTriggerState(false);
+            Debug.Log("Cursor exited dock trigger");
+        }
+        
+        // Check if we exited a button trigger (check both button object and its collider children)
+        for (int i = 0; i < stroopTask.buttonObjects.Count; i++)
+        {
+            if (stroopTask.buttonObjects[i] != null)
+            {
+                // Check if we exited the button object itself or any of its children (like colliders)
+                if (other.gameObject == stroopTask.buttonObjects[i] || 
+                    other.transform.IsChildOf(stroopTask.buttonObjects[i].transform))
+                {
+                    stroopTask.SetButtonTriggerState(false, "");
+                    Debug.Log($"Cursor exited button trigger: {stroopTask.buttonTexts[i].text} (object: {other.gameObject.name})");
+                    break;
+                }
+            }
+        }
     }
 }

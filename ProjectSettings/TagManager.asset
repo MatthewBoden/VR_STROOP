@@ -9,6 +9,7 @@ TagManager:
   - Cursor
   - Debris
   - Despawner
+  - Dock
   layers:
   - Default
   - TransparentFX
