@@ -6,8 +6,8 @@
     "block_num",
     "trial_num_in_block",
     "start_time",
-    "end_time",
-    "hand",
+    "end_time"
+]    "hand",
     "controller_type",
     "note_order",
     "success_per_hit",

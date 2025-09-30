@@ -1,0 +1,210 @@
+{
+  "session_1": {
+    "experiment_name": "Stroop",
+    "use_vr": true,
+    "optional_params": {
+    },
+    "per_block_input_name": [
+      "vr_controller",
+      "vr_controller",
+      "vr_controller",
+      "vr_controller"
+    ],
+    "trials_in_block": [
+      10,
+      10,
+      10,
+      10
+    ],
+    "per_block_task": [
+      "Stroop",
+      "Stroop",
+      "Stroop",
+      "Stroop"
+    ],
+    "per_block_speed": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "per_block_spawn_delay": [
+      0.5,
+      0.5,
+      0.5,
+      0.5
+    ],
+    "per_block_list_target_location": [
+      "congruent",
+      "incongruent",
+      "congruent",
+      "incongruent"
+    ],
+    "congruent": [
+      "congruent_trial_1",
+      "congruent_trial_2",
+      "congruent_trial_3",
+      "congruent_trial_4",
+      "congruent_trial_5",
+      "congruent_trial_6",
+      "congruent_trial_7",
+      "congruent_trial_8",
+      "congruent_trial_9",
+      "congruent_trial_10"
+    ],
+    "incongruent": [
+      "incongruent_trial_1",
+      "incongruent_trial_2",
+      "incongruent_trial_3",
+      "incongruent_trial_4",
+      "incongruent_trial_5",
+      "incongruent_trial_6",
+      "incongruent_trial_7",
+      "incongruent_trial_8",
+      "incongruent_trial_9",
+      "incongruent_trial_10"
+    ],
+    "trial_data": {
+      "congruent_trial_1": {
+        "displayed_word": "red",
+        "displayed_color": "red",
+        "correct_answer": "red",
+        "correct_button_index": 0,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "congruent_trial_2": {
+        "displayed_word": "blue",
+        "displayed_color": "blue",
+        "correct_answer": "blue",
+        "correct_button_index": 1,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "congruent_trial_3": {
+        "displayed_word": "green",
+        "displayed_color": "green",
+        "correct_answer": "green",
+        "correct_button_index": 2,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "congruent_trial_4": {
+        "displayed_word": "yellow",
+        "displayed_color": "yellow",
+        "correct_answer": "yellow",
+        "correct_button_index": 3,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "congruent_trial_5": {
+        "displayed_word": "red",
+        "displayed_color": "red",
+        "correct_answer": "red",
+        "correct_button_index": 0,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "congruent_trial_6": {
+        "displayed_word": "blue",
+        "displayed_color": "blue",
+        "correct_answer": "blue",
+        "correct_button_index": 1,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "congruent_trial_7": {
+        "displayed_word": "green",
+        "displayed_color": "green",
+        "correct_answer": "green",
+        "correct_button_index": 2,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "congruent_trial_8": {
+        "displayed_word": "yellow",
+        "displayed_color": "yellow",
+        "correct_answer": "yellow",
+        "correct_button_index": 3,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "congruent_trial_9": {
+        "displayed_word": "red",
+        "displayed_color": "red",
+        "correct_answer": "red",
+        "correct_button_index": 0,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "congruent_trial_10": {
+        "displayed_word": "blue",
+        "displayed_color": "blue",
+        "correct_answer": "blue",
+        "correct_button_index": 1,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "incongruent_trial_1": {
+        "displayed_word": "red",
+        "displayed_color": "blue",
+        "correct_answer": "blue",
+        "correct_button_index": 1,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "incongruent_trial_2": {
+        "displayed_word": "blue",
+        "displayed_color": "red",
+        "correct_answer": "red",
+        "correct_button_index": 0,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "incongruent_trial_3": {
+        "displayed_word": "green",
+        "displayed_color": "yellow",
+        "correct_answer": "yellow",
+        "correct_button_index": 3,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "incongruent_trial_4": {
+        "displayed_word": "yellow",
+        "displayed_color": "green",
+        "correct_answer": "green",
+        "correct_button_index": 2,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "incongruent_trial_5": {
+        "displayed_word": "red",
+        "displayed_color": "green",
+        "correct_answer": "green",
+        "correct_button_index": 2,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "incongruent_trial_6": {
+        "displayed_word": "blue",
+        "displayed_color": "yellow",
+        "correct_answer": "yellow",
+        "correct_button_index": 3,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "incongruent_trial_7": {
+        "displayed_word": "green",
+        "displayed_color": "red",
+        "correct_answer": "red",
+        "correct_button_index": 0,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "incongruent_trial_8": {
+        "displayed_word": "yellow",
+        "displayed_color": "blue",
+        "correct_answer": "blue",
+        "correct_button_index": 1,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "incongruent_trial_9": {
+        "displayed_word": "red",
+        "displayed_color": "yellow",
+        "correct_answer": "yellow",
+        "correct_button_index": 3,
+        "button_options": ["red", "blue", "green", "yellow"]
+      },
+      "incongruent_trial_10": {
+        "displayed_word": "blue",
+        "displayed_color": "green",
+        "correct_answer": "green",
+        "correct_button_index": 2,
+        "button_options": ["red", "blue", "green", "yellow"]
+      }
+    }
+  }
+}

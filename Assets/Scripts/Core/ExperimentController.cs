@@ -185,8 +185,16 @@ public class ExperimentController : MonoBehaviour
 
         //find input devices
         InputHandler.Instance.FindDevices();
-        string prefabName = session.settings.GetString("experiment_name") + "prefab";
-        GameObject currentTaskPrefab = Instantiate(Resources.Load<GameObject>("Prefabs/" + prefabName));
+        string prefabName = session.settings.GetString("experiment_name") + "Prefab";
+        GameObject prefabToLoad = Resources.Load<GameObject>("Prefabs/" + prefabName);
+        
+        if (prefabToLoad == null)
+        {
+            Debug.LogError($"Prefab not found: Prefabs/{prefabName}. Please check that the prefab exists in Assets/Resources/Prefabs/");
+            return;
+        }
+        
+        GameObject currentTaskPrefab = Instantiate(prefabToLoad);
         currentTaskPrefab.name = prefabName;
         currentTaskPrefab.transform.position = prefabPosition;
 
@@ -321,9 +329,17 @@ public class ExperimentController : MonoBehaviour
             //if there are more blocks to go through
             if (session.CurrentBlock.number < taskPrefabNames.Count)
             {
-                string prefabName = session.settings.GetString("experiment_name") + "prefab";
+                string prefabName = session.settings.GetString("experiment_name") + "Prefab";
+                GameObject prefabToLoad = Resources.Load<GameObject>("Prefabs/" + prefabName);
+                
+                if (prefabToLoad == null)
+                {
+                    Debug.LogError($"Prefab not found: Prefabs/{prefabName}. Please check that the prefab exists in Assets/Resources/Prefabs/");
+                    return;
+                }
+                
                 //move on to the next task and prepare it
-                GameObject currentTaskPrefab = Instantiate(Resources.Load<GameObject>("Prefabs/" + prefabName));
+                GameObject currentTaskPrefab = Instantiate(prefabToLoad);
                 currentTaskPrefab.name = prefabName;
                 currentTaskPrefab.transform.position = prefabPosition;
 

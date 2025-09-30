@@ -1,29 +1,23 @@
 {
-    "use_vr": true,
-    "input_name": "vr_controller",
-    "task": "projectile",
-    "rotation": 0,
-    "water_speed": 1,
-    "otherBall_water_speed": 4,
-    "debris_spawn_rate": 2,
-    "debris_count": 3,
-    "instruction": null,
-    "target_angle": [
-        0,
-        -20,
-        0,
-        -20,
-        -30,
-        -30
-    ],
-    "target_width": 0.75
-}    "target_pos_x": [
-        -0.5,
-        -0.5,
-        0,
-        0.5,
-        0,
-        0.5
+    "use_vr": false,
+    "input_name": "mouse",
+    "task": "Stroop",
+    "speed": 0,
+    "spawn_delay": 0.5,
+    "target_location": [
+        "incongruent_trial_5",
+        "incongruent_trial_6",
+        "incongruent_trial_4",
+        "incongruent_trial_8",
+        "incongruent_trial_10",
+        "incongruent_trial_1",
+        "incongruent_trial_3",
+        "incongruent_trial_7",
+        "incongruent_trial_9",
+        "incongruent_trial_2"
+    ]
+}   ]
+}.5
     ],
     "target_pos_z": [
         0.75,
