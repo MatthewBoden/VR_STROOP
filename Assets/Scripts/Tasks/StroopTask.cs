@@ -121,13 +121,13 @@ public class StroopTask : BaseTask
             if (Input.GetMouseButtonDown(0))
             {
                 isLeftMouseHeld = true;
-                Debug.Log("Left mouse button pressed - moving cursor to Y=0");
+                // Debug.Log("Left mouse button pressed - moving cursor to Y=0");
             }
             // Check for left mouse button release
             else if (Input.GetMouseButtonUp(0))
             {
                 isLeftMouseHeld = false;
-                Debug.Log("Left mouse button released - returning cursor to original height");
+                // Debug.Log("Left mouse button released - returning cursor to original height");
             }
             
             // Update cursor position based on left mouse button state
@@ -140,7 +140,7 @@ public class StroopTask : BaseTask
                 // Debug: Log trigger states
                 if (isInButtonTrigger)
                 {
-                    Debug.Log($"Cursor is in button trigger: {currentButtonInTrigger}");
+                    // Debug.Log($"Cursor is in button trigger: {currentButtonInTrigger}");
                 }
                 
                 // ONLY use trigger-based detection - no fallback to prevent plane interaction
@@ -171,7 +171,7 @@ public class StroopTask : BaseTask
                         if (isLeftMouseHeld && isInDockTrigger)
                         {
                             dockHit = true;
-                            Debug.Log("Cursor is in dock trigger");
+                            // Debug.Log("Cursor is in dock trigger");
                         }
                         
                         // Disable mouse click dock detection for now - only use cursor collision
@@ -184,6 +184,7 @@ public class StroopTask : BaseTask
                         {
                             // Dock hit after block completion - advance to next block
                             Debug.Log("Dock hit - advancing to next block");
+                            Debug.Log($"Current block before advance: {ExperimentController.Instance.Session.currentBlockNum}");
                             waitingForNextBlock = false;
                             
                             // Restore UI elements for new block
@@ -194,12 +195,28 @@ public class StroopTask : BaseTask
                             // Try to advance to next block
                             try
                             {
-                                // UXF doesn't have EndCurrentBlock, so we'll let it handle block progression automatically
-                                Debug.Log("Block completed, UXF should advance to next block automatically");
+                                // End the current trial - UXF will automatically advance to next block if needed
+                                Debug.Log("Block completed, ending current trial");
+                                ExperimentController.Instance.Session.EndCurrentTrial();
+                                Debug.Log($"Current block after trial end: {ExperimentController.Instance.Session.currentBlockNum}");
+                                
+                                // Check if we need to manually advance to next block
+                                if (ExperimentController.Instance.Session.currentBlockNum < ExperimentController.Instance.Session.blocks.Count)
+                                {
+                                    // Manually advance to next block since UXF doesn't do this automatically
+                                    ExperimentController.Instance.Session.currentBlockNum++;
+                                    Debug.Log($"Manually advanced to block: {ExperimentController.Instance.Session.currentBlockNum}");
+                                }
                             }
                             catch (System.Exception e)
                             {
-                                Debug.LogWarning($"Could not end block automatically: {e.Message}");
+                                Debug.LogWarning($"Could not end trial automatically: {e.Message}");
+                                // Fallback: manually advance to next block
+                                if (ExperimentController.Instance.Session.currentBlockNum < ExperimentController.Instance.Session.blocks.Count)
+                                {
+                                    ExperimentController.Instance.Session.currentBlockNum++;
+                                    Debug.Log($"Manually advanced to block: {ExperimentController.Instance.Session.currentBlockNum}");
+                                }
                             }
                         }
                         else
@@ -220,6 +237,7 @@ public class StroopTask : BaseTask
                             {
                                 // Starting first trial of a block
                                 startTime = Time.time;
+                                Debug.Log($"Starting first trial of block {ExperimentController.Instance.Session.currentBlockNum}");
                             }
 
                             StartTrial();
@@ -261,6 +279,7 @@ public class StroopTask : BaseTask
     {
         Debug.Log($"=== STARTING TRIAL {ExperimentController.Instance.Session.CurrentTrial.numberInBlock} ===");
         Debug.Log($"Current block number: {ExperimentController.Instance.Session.currentBlockNum}");
+        Debug.Log($"Total blocks in session: {ExperimentController.Instance.Session.blocks.Count}");
         
         // Reset block waiting flag
         waitingForNextBlock = false;
@@ -308,7 +327,7 @@ public class StroopTask : BaseTask
             // Move cursor to a safe position away from buttons
             Vector3 safePosition = new Vector3(0, 0, 0); // Center position
             cursor.transform.position = safePosition;
-            Debug.Log($"Moved cursor to safe position: {safePosition}");
+            // Debug.Log($"Moved cursor to safe position: {safePosition}");
         }
         
         Debug.Log($"Trial {ExperimentController.Instance.Session.CurrentTrial.numberInBlock} is now ACTIVE");
@@ -352,7 +371,7 @@ public class StroopTask : BaseTask
         if (!ExperimentController.Instance.UseVR && cursor != null)
         {
             originalCursorY = cursor.transform.position.y;
-            Debug.Log($"Original cursor Y position: {originalCursorY}");
+            // Debug.Log($"Original cursor Y position: {originalCursorY}");
             
             // Ensure cursor has a collider for collision detection
             if (cursor.GetComponent<Collider>() == null)
@@ -361,7 +380,7 @@ public class StroopTask : BaseTask
                 BoxCollider cursorCollider = cursor.AddComponent<BoxCollider>();
                 cursorCollider.size = new Vector3(0.1f, 0.1f, 0.1f); // Small collider
                 cursorCollider.isTrigger = true; // Make it a trigger so it doesn't interfere with physics
-                Debug.Log("Added collider to cursor for collision detection");
+                // Debug.Log("Added collider to cursor for collision detection");
             }
             
             // Add trigger detection component to cursor
@@ -370,7 +389,7 @@ public class StroopTask : BaseTask
             {
                 triggerDetector = cursor.AddComponent<CursorTriggerDetector>();
                 triggerDetector.Initialize(this);
-                Debug.Log("Added trigger detector to cursor");
+                // Debug.Log("Added trigger detector to cursor");
             }
         }
         
@@ -478,6 +497,7 @@ public class StroopTask : BaseTask
                 var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
                 try
                 {
+                    // First try to get block_type directly
                     blockType = blockSettings.GetString("block_type");
                     Debug.Log($"Found block_type in settings: {blockType}");
                 }
@@ -485,18 +505,31 @@ public class StroopTask : BaseTask
                 {
                     try
                     {
-                        string taskType = blockSettings.GetString("task");
-                        Debug.Log($"Found task in settings: {taskType}");
-                        if (taskType.ToLower().Contains("incongruent"))
+                        // Try to get from target_location (this is what the JSON uses)
+                        string targetLocation = blockSettings.GetString("target_location");
+                        Debug.Log($"Found target_location in settings: {targetLocation}");
+                        if (targetLocation != null && (targetLocation == "congruent" || targetLocation == "incongruent"))
                         {
-                            blockType = "incongruent";
+                            blockType = targetLocation;
                         }
                     }
                     catch
                     {
-                        // If we can't determine block type, try alternating
-                        blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
-                        Debug.Log($"Using alternating block type: {blockType} (block {blockNumber})");
+                        try
+                        {
+                            string taskType = blockSettings.GetString("task");
+                            Debug.Log($"Found task in settings: {taskType}");
+                            if (taskType.ToLower().Contains("incongruent"))
+                            {
+                                blockType = "incongruent";
+                            }
+                        }
+                        catch
+                        {
+                            // If we can't determine block type, try alternating
+                            blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+                            Debug.Log($"Using alternating block type: {blockType} (block {blockNumber})");
+                        }
                     }
                 }
             }
@@ -508,6 +541,12 @@ public class StroopTask : BaseTask
             }
             
             currentTrialName = $"{blockType}_trial_{trialNumber}";
+            Debug.Log($"=== BLOCK TYPE DETECTION RESULT ===");
+            Debug.Log($"Block type determined: {blockType}");
+            Debug.Log($"Current block number: {blockNumber}");
+            Debug.Log($"Trial number: {trialNumber}");
+            Debug.Log($"Generated trial name: {currentTrialName}");
+            Debug.Log($"=== END BLOCK TYPE DETECTION ===");
             Debug.LogWarning($"trial_name not found, using generated name: {currentTrialName} (blockType: {blockType}, trialNumber: {trialNumber}, blockNumber: {blockNumber})");
         }
         
@@ -554,10 +593,12 @@ public class StroopTask : BaseTask
                     {
                         currentColor = colorMap[colorName];
                         Debug.Log($"Color converted: '{colorName}' -> {currentColor}");
+                        Debug.Log($"Color RGB: R={currentColor.r}, G={currentColor.g}, B={currentColor.b}, A={currentColor.a}");
                     }
                     else
                     {
                         Debug.LogError($"Unknown color: {colorName}");
+                        Debug.LogError($"Available colors in colorMap: {string.Join(", ", colorMap.Keys)}");
                         currentColor = Color.white;
                     }
                     
@@ -623,8 +664,23 @@ public class StroopTask : BaseTask
     private void DisplayWord()
     {
         wordText.text = currentWord;
+        
+        // Try multiple approaches to set the color
         wordText.color = currentColor;
+        wordText.faceColor = currentColor;
+        
+        // Force TextMeshPro to update the color
+        wordText.ForceMeshUpdate();
+        
         Debug.Log($"DisplayWord: Text='{currentWord}', Color={currentColor}, CorrectAnswer='{correctAnswer}'");
+        Debug.Log($"Color RGB values: R={currentColor.r}, G={currentColor.g}, B={currentColor.b}, A={currentColor.a}");
+        Debug.Log($"WordText component found: {wordText != null}");
+        if (wordText != null)
+        {
+            Debug.Log($"WordText actual color after setting: {wordText.color}");
+            Debug.Log($"WordText faceColor: {wordText.faceColor}");
+            Debug.Log($"WordText outlineColor: {wordText.outlineColor}");
+        }
     }
 
     private void SetupResponseButtons()
@@ -649,6 +705,7 @@ public class StroopTask : BaseTask
                 var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
                 try
                 {
+                    // First try to get block_type directly
                     blockType = blockSettings.GetString("block_type");
                     Debug.Log($"Found block_type in settings: {blockType}");
                 }
@@ -656,18 +713,31 @@ public class StroopTask : BaseTask
                 {
                     try
                     {
-                        string taskType = blockSettings.GetString("task");
-                        Debug.Log($"Found task in settings: {taskType}");
-                        if (taskType.ToLower().Contains("incongruent"))
+                        // Try to get from target_location (this is what the JSON uses)
+                        string targetLocation = blockSettings.GetString("target_location");
+                        Debug.Log($"Found target_location in settings: {targetLocation}");
+                        if (targetLocation != null && (targetLocation == "congruent" || targetLocation == "incongruent"))
                         {
-                            blockType = "incongruent";
+                            blockType = targetLocation;
                         }
                     }
                     catch
                     {
-                        // If we can't determine block type, try alternating
-                        blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
-                        Debug.Log($"Using alternating block type: {blockType} (block {blockNumber})");
+                        try
+                        {
+                            string taskType = blockSettings.GetString("task");
+                            Debug.Log($"Found task in settings: {taskType}");
+                            if (taskType.ToLower().Contains("incongruent"))
+                            {
+                                blockType = "incongruent";
+                            }
+                        }
+                        catch
+                        {
+                            // If we can't determine block type, try alternating
+                            blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+                            Debug.Log($"Using alternating block type: {blockType} (block {blockNumber})");
+                        }
                     }
                 }
             }
@@ -874,6 +944,8 @@ public class StroopTask : BaseTask
         int trialsInCurrentBlock = trialsPerBlock[ExperimentController.Instance.Session.currentBlockNum - 1];
         
         Debug.Log($"Trial check - currentTrialInBlock: {currentTrialInBlock}, trialsInCurrentBlock: {trialsInCurrentBlock}");
+        Debug.Log($"Current block number: {ExperimentController.Instance.Session.currentBlockNum}");
+        Debug.Log($"Total blocks: {ExperimentController.Instance.Session.blocks.Count}");
         
         if (currentTrialInBlock >= trialsInCurrentBlock)
         {
@@ -1038,8 +1110,39 @@ public class StroopTask : BaseTask
         session.CurrentTrial.result["reaction_times"] = string.Join(",", reactionTimes.Select(rt => rt.ToString("F3")));
         session.CurrentTrial.result["correct_responses"] = string.Join(",", correctResponses.Select(cr => cr.ToString()));
 
-        // Block type information
-        string blockType = currentBlock == 0 ? "congruent" : "incongruent";
+        // Block type information - get from actual block settings
+        string blockType = "congruent"; // default
+        try
+        {
+            var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
+            try
+            {
+                blockType = blockSettings.GetString("block_type");
+            }
+            catch
+            {
+                try
+                {
+                    string targetLocation = blockSettings.GetString("target_location");
+                    if (targetLocation != null && (targetLocation == "congruent" || targetLocation == "incongruent"))
+                    {
+                        blockType = targetLocation;
+                    }
+                }
+                catch
+                {
+                    // Fallback to alternating pattern
+                    int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
+                    blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+                }
+            }
+        }
+        catch
+        {
+            // Fallback to alternating pattern
+            int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
+            blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
+        }
         session.CurrentTrial.result["block_type"] = blockType;
         
         // Current trial data (if available)
@@ -1062,7 +1165,41 @@ public class StroopTask : BaseTask
 
         int accuracy = completedTrials > 0 ? (int)((float)totalCorrect / completedTrials * 100) : 0;
         float avgRT = completedTrials > 0 ? totalReactionTime / completedTrials : 0f;
-        string blockType = currentBlock == 0 ? "Congruent" : "Incongruent";
+        
+        // Get block type from actual block settings
+        string blockType = "Congruent"; // default
+        try
+        {
+            var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
+            try
+            {
+                string blockTypeLower = blockSettings.GetString("block_type");
+                blockType = char.ToUpper(blockTypeLower[0]) + blockTypeLower.Substring(1);
+            }
+            catch
+            {
+                try
+                {
+                    string targetLocation = blockSettings.GetString("target_location");
+                    if (targetLocation != null && (targetLocation == "congruent" || targetLocation == "incongruent"))
+                    {
+                        blockType = char.ToUpper(targetLocation[0]) + targetLocation.Substring(1);
+                    }
+                }
+                catch
+                {
+                    // Fallback to alternating pattern
+                    int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
+                    blockType = (blockNumber % 2 == 0) ? "Incongruent" : "Congruent";
+                }
+            }
+        }
+        catch
+        {
+            // Fallback to alternating pattern
+            int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
+            blockType = (blockNumber % 2 == 0) ? "Incongruent" : "Congruent";
+        }
 
         // Update the Text fields using ExperimentController data
         scoreText.text = $"Score: {totalScore}";
@@ -1177,7 +1314,7 @@ public class StroopTask : BaseTask
                     if (cursorCollider.bounds.Intersects(buttonCollider.bounds))
                     {
                         string buttonLabel = buttonTexts[i].text;
-                        Debug.Log($"Cursor collider intersected with button: {buttonLabel}");
+                        // Debug.Log($"Cursor collider intersected with button: {buttonLabel}");
                         OnButtonResponse(buttonLabel);
                         break; // Only trigger one button at a time
                     }
@@ -1204,7 +1341,7 @@ public class StroopTask : BaseTask
                 if (distance < 0.15f) // Slightly larger threshold for fallback
                 {
                     string buttonLabel = buttonTexts[i].text;
-                    Debug.Log($"Fallback: Cursor near button {buttonLabel} at distance {distance}");
+                    // Debug.Log($"Fallback: Cursor near button {buttonLabel} at distance {distance}");
                     OnButtonResponse(buttonLabel);
                     break; // Only trigger one button at a time
                 }
@@ -1323,7 +1460,7 @@ public class CursorTriggerDetector : MonoBehaviour
         if (other.gameObject.name == "Dock" || other.gameObject.CompareTag("Dock"))
         {
             stroopTask.SetDockTriggerState(true);
-            Debug.Log("Cursor entered dock trigger");
+            // Debug.Log("Cursor entered dock trigger");
         }
         
         // Check if we entered a button trigger (check both button object and its collider children)
@@ -1336,7 +1473,7 @@ public class CursorTriggerDetector : MonoBehaviour
                     other.transform.IsChildOf(stroopTask.buttonObjects[i].transform))
                 {
                     stroopTask.SetButtonTriggerState(true, stroopTask.buttonTexts[i].text);
-                    Debug.Log($"Cursor entered button trigger: {stroopTask.buttonTexts[i].text} (object: {other.gameObject.name})");
+                    // Debug.Log($"Cursor entered button trigger: {stroopTask.buttonTexts[i].text} (object: {other.gameObject.name})");
                     break;
                 }
             }
@@ -1360,7 +1497,7 @@ public class CursorTriggerDetector : MonoBehaviour
         if (other.gameObject.name == "Dock" || other.gameObject.CompareTag("Dock"))
         {
             stroopTask.SetDockTriggerState(false);
-            Debug.Log("Cursor exited dock trigger");
+            // Debug.Log("Cursor exited dock trigger");
         }
         
         // Check if we exited a button trigger (check both button object and its collider children)
@@ -1373,7 +1510,7 @@ public class CursorTriggerDetector : MonoBehaviour
                     other.transform.IsChildOf(stroopTask.buttonObjects[i].transform))
                 {
                     stroopTask.SetButtonTriggerState(false, "");
-                    Debug.Log($"Cursor exited button trigger: {stroopTask.buttonTexts[i].text} (object: {other.gameObject.name})");
+                    // Debug.Log($"Cursor exited button trigger: {stroopTask.buttonTexts[i].text} (object: {other.gameObject.name})");
                     break;
                 }
             }

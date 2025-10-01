@@ -1,0 +1,10 @@
+{
+    "experiment": "stroop_experiment_2d",
+    "ppid": "001",
+    "session_num": 1,
+    "trial_num": 22,
+    "block_num": 3,
+    "trial_num_in_block": 2,
+    "start_time": 65.911346435546875,
+    "end_time": 90.073005676269531
+}

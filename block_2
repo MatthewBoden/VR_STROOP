@@ -4,14 +4,14 @@
     "task": "Stroop",
     "speed": 0,
     "spawn_delay": 0.5,
-    "target_location": [
+    "target_location": "congruent"
+}ngruent_trial_3",
+        "congruent_trial_10",
+        "congruent_trial_1",
         "congruent_trial_5",
         "congruent_trial_8",
-        "congruent_trial_6",
-        "congruent_trial_3",
         "congruent_trial_7",
-        "congruent_trial_1",
-        "congruent_trial_10",
+        "congruent_trial_6",
         "congruent_trial_9",
         "congruent_trial_4",
         "congruent_trial_2"
