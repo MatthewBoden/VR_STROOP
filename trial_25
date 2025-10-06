@@ -2,13 +2,13 @@
     "experiment": "stroop_experiment",
     "ppid": "001",
     "session_num": 1,
-    "trial_num": 22,
+    "trial_num": 26,
     "block_num": 3,
-    "trial_num_in_block": 2,
-    "start_time": 75.838874816894531,
-    "end_time": 78.8949203491211,
+    "trial_num_in_block": 6,
+    "start_time": 87.422073364257813,
+    "end_time": 90.2693099975586,
     "completed": true,
     "response": "blue",
     "correct": true,
-    "reaction_time": 0.98146820068359375
+    "reaction_time": 0.92746734619140625
 }

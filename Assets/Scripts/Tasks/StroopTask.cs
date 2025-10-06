@@ -2126,6 +2126,24 @@ public class StroopTask : BaseTask
         // Check if response is correct
         bool isCorrect = response == correctAnswer;
         Debug.Log($"Response comparison: '{response}' == '{correctAnswer}' = {isCorrect}");
+        
+        // Play audio feedback based on correctness
+        if (audioSource != null)
+        {
+            if (isCorrect && correctSFX != null)
+            {
+                audioSource.clip = correctSFX;
+                audioSource.Play();
+                Debug.Log("Played correct sound");
+            }
+            else if (!isCorrect && incorrectSFX != null)
+            {
+                audioSource.clip = incorrectSFX;
+                audioSource.Play();
+                Debug.Log("Played incorrect sound");
+            }
+        }
+        
         if (isCorrect)
         {
             totalCorrect++;
