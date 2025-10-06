@@ -93,6 +93,17 @@ public class StroopTask : BaseTask
     private List<string> correctAnswers = new List<string>();
     private List<string> participantResponses = new List<string>();
     
+    // Block-specific data tracking
+    private List<float> blockReactionTimes = new List<float>();
+    private List<bool> blockCorrectResponses = new List<bool>();
+    private List<string> blockPresentedWords = new List<string>();
+    private List<string> blockPresentedColors = new List<string>();
+    private List<string> blockCorrectAnswers = new List<string>();
+    private List<string> blockParticipantResponses = new List<string>();
+    private int blockCorrect = 0;
+    private float blockTotalReactionTime = 0f;
+    private float blockStartTime = 0f;
+    
     // Cursor movement for 2D mode
     private float originalCursorY = 0f;
     private bool isLeftMouseHeld = false;
@@ -569,10 +580,34 @@ public class StroopTask : BaseTask
             }
         }
     }
+    
+    /// <summary>
+    /// Reset block-specific data when starting a new block
+    /// </summary>
+    private void ResetBlockData()
+    {
+        // Clear block-specific data lists
+        blockReactionTimes.Clear();
+        blockCorrectResponses.Clear();
+        blockPresentedWords.Clear();
+        blockPresentedColors.Clear();
+        blockCorrectAnswers.Clear();
+        blockParticipantResponses.Clear();
+        
+        // Reset block-specific counters
+        blockCorrect = 0;
+        blockTotalReactionTime = 0f;
+        blockStartTime = Time.time;
+        
+        Debug.Log($"Block {ExperimentController.Instance.Session.currentBlockNum} data reset - starting fresh tracking");
+    }
 
     public override void TaskBegin()
     {
         base.TaskBegin();
+        
+        // Reset block-specific data for new block
+        ResetBlockData();
         
         // Reset trial data
         trialActive = false;
@@ -1969,6 +2004,21 @@ public class StroopTask : BaseTask
         session.CurrentTrial.result["accuracy_percentage"] = completedTrials > 0 ? (float)totalCorrect / completedTrials * 100f : 0f;
         session.CurrentTrial.result["average_reaction_time"] = completedTrials > 0 ? totalReactionTime / completedTrials : 0f;
         session.CurrentTrial.result["total_time"] = endTime - startTime;
+        
+        // Block-specific data (resets each block)
+        session.CurrentTrial.result["block_total_correct"] = blockCorrect;
+        session.CurrentTrial.result["block_total_trials"] = blockReactionTimes.Count;
+        session.CurrentTrial.result["block_accuracy_percentage"] = blockReactionTimes.Count > 0 ? (float)blockCorrect / blockReactionTimes.Count * 100f : 0f;
+        session.CurrentTrial.result["block_average_reaction_time"] = blockReactionTimes.Count > 0 ? blockTotalReactionTime / blockReactionTimes.Count : 0f;
+        session.CurrentTrial.result["block_total_time"] = Time.time - blockStartTime;
+        
+        // Block-specific trial data (arrays for this block only)
+        session.CurrentTrial.result["block_presented_words"] = string.Join(",", blockPresentedWords);
+        session.CurrentTrial.result["block_presented_colors"] = string.Join(",", blockPresentedColors);
+        session.CurrentTrial.result["block_correct_answers"] = string.Join(",", blockCorrectAnswers);
+        session.CurrentTrial.result["block_participant_responses"] = string.Join(",", blockParticipantResponses);
+        session.CurrentTrial.result["block_reaction_times"] = string.Join(",", blockReactionTimes.Select(rt => rt.ToString("F3")));
+        session.CurrentTrial.result["block_correct_responses"] = string.Join(",", blockCorrectResponses.Select(cr => cr.ToString()));
 
         // Controller information
         if (ExperimentController.Instance.UseVR)
@@ -2048,6 +2098,137 @@ public class StroopTask : BaseTask
             session.CurrentTrial.result["current_reaction_time"] = reactionTimes[reactionTimes.Count - 1];
             session.CurrentTrial.result["current_correct"] = correctResponses[correctResponses.Count - 1];
         }
+        
+        // Additional analysis data
+        session.CurrentTrial.result["total_trials_completed"] = completedTrials;
+        session.CurrentTrial.result["total_incorrect"] = completedTrials - totalCorrect;
+        session.CurrentTrial.result["error_rate"] = completedTrials > 0 ? (float)(completedTrials - totalCorrect) / completedTrials * 100f : 0f;
+        
+        // Reaction time statistics
+        if (reactionTimes.Count > 0)
+        {
+            session.CurrentTrial.result["min_reaction_time"] = reactionTimes.Min();
+            session.CurrentTrial.result["max_reaction_time"] = reactionTimes.Max();
+            session.CurrentTrial.result["median_reaction_time"] = reactionTimes.OrderBy(x => x).Skip(reactionTimes.Count / 2).First();
+        }
+        
+        // Block-specific reaction time statistics
+        if (blockReactionTimes.Count > 0)
+        {
+            session.CurrentTrial.result["block_min_reaction_time"] = blockReactionTimes.Min();
+            session.CurrentTrial.result["block_max_reaction_time"] = blockReactionTimes.Max();
+            session.CurrentTrial.result["block_median_reaction_time"] = blockReactionTimes.OrderBy(x => x).Skip(blockReactionTimes.Count / 2).First();
+        }
+        
+        // Congruency analysis
+        int congruentCorrect = 0, congruentTotal = 0;
+        int incongruentCorrect = 0, incongruentTotal = 0;
+        
+        for (int i = 0; i < presentedWords.Count && i < correctResponses.Count; i++)
+        {
+            bool isCongruent = presentedWords[i] == presentedColors[i];
+            if (isCongruent)
+            {
+                congruentTotal++;
+                if (correctResponses[i]) congruentCorrect++;
+            }
+            else
+            {
+                incongruentTotal++;
+                if (correctResponses[i]) incongruentCorrect++;
+            }
+        }
+        
+        session.CurrentTrial.result["congruent_trials"] = congruentTotal;
+        session.CurrentTrial.result["congruent_correct"] = congruentCorrect;
+        session.CurrentTrial.result["congruent_accuracy"] = congruentTotal > 0 ? (float)congruentCorrect / congruentTotal * 100f : 0f;
+        session.CurrentTrial.result["incongruent_trials"] = incongruentTotal;
+        session.CurrentTrial.result["incongruent_correct"] = incongruentCorrect;
+        session.CurrentTrial.result["incongruent_accuracy"] = incongruentTotal > 0 ? (float)incongruentCorrect / incongruentTotal * 100f : 0f;
+        
+        // Stroop effect calculation
+        float stroopEffect = 0f;
+        if (congruentTotal > 0 && incongruentTotal > 0)
+        {
+            float congruentRT = 0f, incongruentRT = 0f;
+            int congruentRTCount = 0, incongruentRTCount = 0;
+            
+            for (int i = 0; i < presentedWords.Count && i < reactionTimes.Count; i++)
+            {
+                bool isCongruent = presentedWords[i] == presentedColors[i];
+                if (isCongruent)
+                {
+                    congruentRT += reactionTimes[i];
+                    congruentRTCount++;
+                }
+                else
+                {
+                    incongruentRT += reactionTimes[i];
+                    incongruentRTCount++;
+                }
+            }
+            
+            if (congruentRTCount > 0 && incongruentRTCount > 0)
+            {
+                stroopEffect = (incongruentRT / incongruentRTCount) - (congruentRT / congruentRTCount);
+            }
+        }
+        session.CurrentTrial.result["stroop_effect_rt"] = stroopEffect;
+        
+        // Block-specific congruency analysis
+        int blockCongruentCorrect = 0, blockCongruentTotal = 0;
+        int blockIncongruentCorrect = 0, blockIncongruentTotal = 0;
+        
+        for (int i = 0; i < blockPresentedWords.Count && i < blockCorrectResponses.Count; i++)
+        {
+            bool isCongruent = blockPresentedWords[i] == blockPresentedColors[i];
+            if (isCongruent)
+            {
+                blockCongruentTotal++;
+                if (blockCorrectResponses[i]) blockCongruentCorrect++;
+            }
+            else
+            {
+                blockIncongruentTotal++;
+                if (blockCorrectResponses[i]) blockIncongruentCorrect++;
+            }
+        }
+        
+        session.CurrentTrial.result["block_congruent_trials"] = blockCongruentTotal;
+        session.CurrentTrial.result["block_congruent_correct"] = blockCongruentCorrect;
+        session.CurrentTrial.result["block_congruent_accuracy"] = blockCongruentTotal > 0 ? (float)blockCongruentCorrect / blockCongruentTotal * 100f : 0f;
+        session.CurrentTrial.result["block_incongruent_trials"] = blockIncongruentTotal;
+        session.CurrentTrial.result["block_incongruent_correct"] = blockIncongruentCorrect;
+        session.CurrentTrial.result["block_incongruent_accuracy"] = blockIncongruentTotal > 0 ? (float)blockIncongruentCorrect / blockIncongruentTotal * 100f : 0f;
+        
+        // Block-specific Stroop effect calculation
+        float blockStroopEffect = 0f;
+        if (blockCongruentTotal > 0 && blockIncongruentTotal > 0)
+        {
+            float blockCongruentRT = 0f, blockIncongruentRT = 0f;
+            int blockCongruentRTCount = 0, blockIncongruentRTCount = 0;
+            
+            for (int i = 0; i < blockPresentedWords.Count && i < blockReactionTimes.Count; i++)
+            {
+                bool isCongruent = blockPresentedWords[i] == blockPresentedColors[i];
+                if (isCongruent)
+                {
+                    blockCongruentRT += blockReactionTimes[i];
+                    blockCongruentRTCount++;
+                }
+                else
+                {
+                    blockIncongruentRT += blockReactionTimes[i];
+                    blockIncongruentRTCount++;
+                }
+            }
+            
+            if (blockCongruentRTCount > 0 && blockIncongruentRTCount > 0)
+            {
+                blockStroopEffect = (blockIncongruentRT / blockIncongruentRTCount) - (blockCongruentRT / blockCongruentRTCount);
+            }
+        }
+        session.CurrentTrial.result["block_stroop_effect_rt"] = blockStroopEffect;
     }
 
     private void UpdateScoreboard()
@@ -2150,10 +2331,25 @@ public class StroopTask : BaseTask
             totalScore += Mathf.Max(0, 100 - Mathf.RoundToInt(reactionTime * 100));
         }
 
-        // Store trial data
+        // Store trial data (overall)
         participantResponses.Add(response);
         reactionTimes.Add(reactionTime);
         correctResponses.Add(isCorrect);
+        
+        // Store trial data (block-specific)
+        blockParticipantResponses.Add(response);
+        blockReactionTimes.Add(reactionTime);
+        blockCorrectResponses.Add(isCorrect);
+        blockPresentedWords.Add(currentWord);
+        blockPresentedColors.Add(GetColorName(currentColor));
+        blockCorrectAnswers.Add(correctAnswer);
+        
+        // Update block-specific counters
+        if (isCorrect)
+        {
+            blockCorrect++;
+        }
+        blockTotalReactionTime += reactionTime;
 
         // Log hand positions at response time
         if (leftHand != null)
