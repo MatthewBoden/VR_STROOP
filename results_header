@@ -19,6 +19,9 @@
     "average_reaction_time",
     "total_time",
     "controller_type",
+    "participant_spawn_location_x",
+    "participant_spawn_location_y",
+    "participant_spawn_location_z",
     "hand",
     "left_hand_pos_x",
     "left_hand_pos_y",
@@ -39,9 +42,4 @@
     "current_participant_response",
     "current_reaction_time",
     "current_correct"
-]rple_pos_x",
-    "note_purple_pos_z"
-]te_yellow_pos_z",
-    "note_purple_pos_x",
-    "note_purple_pos_z"
 ]

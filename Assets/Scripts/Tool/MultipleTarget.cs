@@ -34,6 +34,7 @@ public class MultipleTarget : MonoBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
+        Debug.Log($"[MultipleTarget] OnCollisionEnter: {name} collided with {collision.gameObject.name}");
         isColliding = true;
         isHitCollide = true;
 
@@ -42,6 +43,7 @@ public class MultipleTarget : MonoBehaviour
         {
             if(g == collision.gameObject)
             {
+                Debug.Log($"[MultipleTarget] Tool collision detected: {g.name} collided with {name}");
                 collidingTool = g;
                 isToolColliding = true;
             }
@@ -113,6 +115,7 @@ public class MultipleTarget : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        Debug.Log($"[MultipleTarget] OnTriggerEnter: {name} triggered by {other.gameObject.name}");
         isTriggered = true;
         isHitTrigger = true;
 
@@ -121,6 +124,7 @@ public class MultipleTarget : MonoBehaviour
         {
             if (g == other.gameObject)
             {
+                Debug.Log($"[MultipleTarget] Tool trigger detected: {g.name} triggered {name}");
                 collidingTool = g;
                 isToolColliding = true;
             }

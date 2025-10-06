@@ -41,13 +41,13 @@ public class StroopTask : BaseTask
     [SerializeField] TextMeshProUGUI TrialTXT;
     
     [Header("VR Components")]
-    [SerializeField] GameObject directRight;
-    [SerializeField] GameObject directLeft;
-    [SerializeField] GameObject leftHand;
-    [SerializeField] GameObject leftHandCtrl;
-    [SerializeField] GameObject rightHand;
-    [SerializeField] GameObject rightHandCtrl;
-    [SerializeField] GameObject MainCamera;
+    [SerializeField] public GameObject directRight;
+    [SerializeField] public GameObject directLeft;
+    [SerializeField] public GameObject leftHand;
+    [SerializeField] public GameObject leftHandCtrl;
+    [SerializeField] public GameObject rightHand;
+    [SerializeField] public GameObject rightHandCtrl;
+    [SerializeField] public GameObject MainCamera;
     
     [Header("Additional Components")]
     [SerializeField] GameObject spawnParent;
@@ -222,7 +222,7 @@ public class StroopTask : BaseTask
                         else
                         {
                             // Dock hit for starting trial
-                            Debug.Log("Dock hit - starting trial");
+                            Debug.Log("Dock hit - starting trial with 1 second delay");
                             dock.GetComponent<Target>().ResetTarget();
                             audioSource.clip = buttonClickSFX;
                             audioSource.Play();
@@ -240,7 +240,8 @@ public class StroopTask : BaseTask
                                 Debug.Log($"Starting first trial of block {ExperimentController.Instance.Session.currentBlockNum}");
                             }
 
-                            StartTrial();
+                            // Start trial with 1 second delay to prevent hand clipping with buttons
+                            StartCoroutine(DelayedStartTrial(1.0f));
                             IncrementStep();
                         }
                     }
@@ -257,6 +258,9 @@ public class StroopTask : BaseTask
                                 leftHandPos.Add(directLeft.transform.position);
                             if (directRight != null)
                                 rightHandPos.Add(directRight.transform.position);
+                            
+                            // Check for VR hand button interactions using MultipleTarget system
+                            CheckVRButtonInteractions();
                         }
                         else
                         {
@@ -301,6 +305,18 @@ public class StroopTask : BaseTask
         
         Debug.Log($"After StartTrial: Word='{currentWord}', Color={currentColor}, Correct='{correctAnswer}'");
         
+        // Auto-setup VR hand interactions if in VR mode (ensure Tools are populated)
+        if (ExperimentController.Instance.UseVR)
+        {
+            Debug.Log("=== STARTING VR HAND AUTO-SETUP ===");
+            AutoSetupVRHandInteractions();
+            Debug.Log("=== VR HAND AUTO-SETUP COMPLETE ===");
+        }
+        else
+        {
+            Debug.Log("Not in VR mode - skipping VR hand setup");
+        }
+        
         // Activate buttons for interaction
         ActivateButtons(true);
         
@@ -341,10 +357,75 @@ public class StroopTask : BaseTask
         {
             if (buttonObjects[i] != null)
             {
+                // Activate/deactivate ButtonCollisionHandler for 2D mode
                 ButtonCollisionHandler handler = buttonObjects[i].GetComponent<ButtonCollisionHandler>();
                 if (handler != null)
                 {
                     handler.SetActive(active);
+                }
+                
+                // Find the Goal Collider child object
+                Transform goalColliderTransform = buttonObjects[i].transform.Find("LO Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("LI Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("RI Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("RO Goal Collider");
+                
+                if (goalColliderTransform == null)
+                {
+                    // Try to find any child with "Goal Collider" in the name
+                    foreach (Transform child in buttonObjects[i].transform)
+                    {
+                        if (child.name.Contains("Goal Collider"))
+                        {
+                            goalColliderTransform = child;
+                            break;
+                        }
+                    }
+                }
+                
+                if (goalColliderTransform != null)
+                {
+                    // Enable/disable MultipleTarget component
+                    MultipleTarget multipleTarget = goalColliderTransform.GetComponent<MultipleTarget>();
+                    if (multipleTarget != null)
+                    {
+                        multipleTarget.enabled = active;
+                        if (active)
+                        {
+                            multipleTarget.ResetState();
+                        }
+                        Debug.Log($"MultipleTarget on {goalColliderTransform.name} {(active ? "enabled" : "disabled")}");
+                    }
+                    
+                    // Enable/disable capsule collider based on VR mode
+                    CapsuleCollider capsuleCollider = goalColliderTransform.GetComponent<CapsuleCollider>();
+                    if (capsuleCollider != null)
+                    {
+                        if (ExperimentController.Instance.UseVR)
+                        {
+                            capsuleCollider.enabled = active; // Enable/disable based on button state in VR mode
+                            Debug.Log($"Capsule collider on {goalColliderTransform.name} {(active ? "enabled" : "disabled")} for VR mode");
+                        }
+                        else
+                        {
+                            capsuleCollider.enabled = false; // Always disabled for 2D cursor mode
+                            Debug.Log($"Capsule collider on {goalColliderTransform.name} disabled for 2D cursor mode");
+                        }
+                    }
+                }
+                else
+                {
+                    // Fallback: activate/deactivate MultipleTarget on main button object
+                    MultipleTarget multipleTarget = buttonObjects[i].GetComponent<MultipleTarget>();
+                    if (multipleTarget != null)
+                    {
+                        multipleTarget.enabled = active;
+                        if (active)
+                        {
+                            multipleTarget.ResetState();
+                        }
+                        Debug.Log($"MultipleTarget on main button {i} {(active ? "enabled" : "disabled")} (fallback)");
+                    }
                 }
             }
         }
@@ -355,7 +436,7 @@ public class StroopTask : BaseTask
         base.SetUp();
         maxSteps = 3;
 
-        // Initialize VR components
+        // Initialize VR components with better detection and debugging
         directRight = GameObject.Find("RH Direct Interactor");
         directLeft = GameObject.Find("LH Direct Interactor");
         leftHand = GameObject.Find("Left Hand");
@@ -363,9 +444,59 @@ public class StroopTask : BaseTask
         leftHandCtrl = GameObject.Find("Left Controller");
         rightHandCtrl = GameObject.Find("Right Controller");
         MainCamera = GameObject.Find("Main Camera");
+        
+        // Debug VR component detection
+        Debug.Log($"VR Component Detection:");
+        Debug.Log($"  directRight: {(directRight != null ? directRight.name : "NOT FOUND")}");
+        Debug.Log($"  directLeft: {(directLeft != null ? directLeft.name : "NOT FOUND")}");
+        Debug.Log($"  leftHand: {(leftHand != null ? leftHand.name : "NOT FOUND")}");
+        Debug.Log($"  rightHand: {(rightHand != null ? rightHand.name : "NOT FOUND")}");
+        Debug.Log($"  leftHandCtrl: {(leftHandCtrl != null ? leftHandCtrl.name : "NOT FOUND")}");
+        Debug.Log($"  rightHandCtrl: {(rightHandCtrl != null ? rightHandCtrl.name : "NOT FOUND")}");
+        
+        // Try alternative names for VR hands if primary names fail
+        if (leftHand == null)
+        {
+            leftHand = GameObject.Find("LeftHand");
+            if (leftHand == null) leftHand = GameObject.Find("LeftHand Controller");
+            if (leftHand == null) leftHand = GameObject.Find("LeftHandController");
+        }
+        
+        if (rightHand == null)
+        {
+            rightHand = GameObject.Find("RightHand");
+            if (rightHand == null) rightHand = GameObject.Find("RightHand Controller");
+            if (rightHand == null) rightHand = GameObject.Find("RightHandController");
+        }
+        
+        if (directLeft == null)
+        {
+            directLeft = GameObject.Find("LeftHand Direct Interactor");
+            if (directLeft == null) directLeft = GameObject.Find("Left Direct Interactor");
+        }
+        
+        if (directRight == null)
+        {
+            directRight = GameObject.Find("RightHand Direct Interactor");
+            if (directRight == null) directRight = GameObject.Find("Right Direct Interactor");
+        }
+        
+        // Log final detection results
+        Debug.Log($"Final VR Component Detection:");
+        Debug.Log($"  directRight: {(directRight != null ? directRight.name : "NOT FOUND")}");
+        Debug.Log($"  directLeft: {(directLeft != null ? directLeft.name : "NOT FOUND")}");
+        Debug.Log($"  leftHand: {(leftHand != null ? leftHand.name : "NOT FOUND")}");
+        Debug.Log($"  rightHand: {(rightHand != null ? rightHand.name : "NOT FOUND")}");
 
         // Setup VR or desktop mode
         SetupXR();
+        
+        // Setup VR hand interactions if in VR mode
+        if (ExperimentController.Instance.UseVR)
+        {
+            SetupVRHandTags();
+            SetupVRHandInteractions();
+        }
         
         // Initialize cursor Y position for 2D mode
         if (!ExperimentController.Instance.UseVR && cursor != null)
@@ -463,6 +594,17 @@ public class StroopTask : BaseTask
         dock.GetComponent<Target>().enabled = true;
         dock.GetComponent<MeshCollider>().enabled = true;
         dock.GetComponent<Target>().ResetTarget();
+        
+        // Auto-setup VR hand interactions if in VR mode
+        if (ExperimentController.Instance.UseVR)
+        {
+            AutoSetupVRHandInteractions();
+        }
+        else
+        {
+            // Disable capsule colliders for 2D cursor mode
+            DisableCapsuleCollidersFor2D();
+        }
         
         // Update scoreboard
         UpdateScoreboard();
@@ -1035,6 +1177,757 @@ public class StroopTask : BaseTask
             if (MainCamera != null)
             {
                 MainCamera.SetActive(false);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Setup proper tags for VR hand objects to enable interaction detection
+    /// </summary>
+    private void SetupVRHandTags()
+    {
+        Debug.Log("Setting up VR hand tags...");
+        
+        // Tag the hand objects
+        if (leftHand != null)
+        {
+            leftHand.tag = "Hand";
+            Debug.Log($"Tagged {leftHand.name} as 'Hand'");
+        }
+        
+        if (rightHand != null)
+        {
+            rightHand.tag = "Hand";
+            Debug.Log($"Tagged {rightHand.name} as 'Hand'");
+        }
+        
+        // Tag the direct interactors
+        if (directLeft != null)
+        {
+            directLeft.tag = "Controller";
+            Debug.Log($"Tagged {directLeft.name} as 'Controller'");
+        }
+        
+        if (directRight != null)
+        {
+            directRight.tag = "Controller";
+            Debug.Log($"Tagged {directRight.name} as 'Controller'");
+        }
+        
+        // Tag the controller objects
+        if (leftHandCtrl != null)
+        {
+            leftHandCtrl.tag = "Controller";
+            Debug.Log($"Tagged {leftHandCtrl.name} as 'Controller'");
+        }
+        
+        if (rightHandCtrl != null)
+        {
+            rightHandCtrl.tag = "Controller";
+            Debug.Log($"Tagged {rightHandCtrl.name} as 'Controller'");
+        }
+        
+        Debug.Log("VR hand tagging complete.");
+    }
+    
+    /// <summary>
+    /// Setup VR hand interactions using the same pattern as BongoTask
+    /// </summary>
+    private void SetupVRHandInteractions()
+    {
+        Debug.Log("Setting up VR hand interactions...");
+        
+        // Set up dock interaction with VR hands (same as BongoTask)
+        if (dock != null)
+        {
+            dock.GetComponent<Target>().SetProjectile(directRight);
+            Debug.Log($"Dock projectile set to: {directRight?.name}");
+            
+            // Note: Target component only supports one projectile, but we could potentially
+            // add a second Target component or modify the approach for both hands
+            if (directLeft != null)
+            {
+                Debug.Log($"Note: Dock only supports one hand (right). Left hand: {directLeft.name} not registered with dock.");
+            }
+        }
+        
+        // Set up button interactions with VR hands
+        for (int i = 0; i < buttonObjects.Count; i++)
+        {
+            if (buttonObjects[i] != null)
+            {
+                Debug.Log($"Setting up button {i}: {buttonObjects[i].name}");
+                
+                // Find the Goal Mesh child object (where MultipleTarget should be)
+                Transform goalMeshTransform = buttonObjects[i].transform.Find("LOGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("LIGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("RIGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("ROGoalMesh");
+                
+                if (goalMeshTransform == null)
+                {
+                    // Try to find any child with "GoalMesh" in the name
+                    foreach (Transform child in buttonObjects[i].transform)
+                    {
+                        if (child.name.Contains("GoalMesh"))
+                        {
+                            goalMeshTransform = child;
+                            break;
+                        }
+                    }
+                }
+                
+                if (goalMeshTransform != null)
+                {
+                    Debug.Log($"Found Goal Mesh: {goalMeshTransform.name}");
+                    
+                    // Add MultipleTarget component to the Goal Mesh object
+                    MultipleTarget multipleTarget = goalMeshTransform.GetComponent<MultipleTarget>();
+                    if (multipleTarget == null)
+                    {
+                        multipleTarget = goalMeshTransform.gameObject.AddComponent<MultipleTarget>();
+                        Debug.Log($"Added MultipleTarget component to {goalMeshTransform.name}");
+                    }
+                    else
+                    {
+                        Debug.Log($"Goal Mesh already has MultipleTarget component");
+                    }
+                    
+                    // Clear existing tools and add VR hands as tools
+                    multipleTarget.tools.Clear();
+                    
+                    if (directRight != null)
+                    {
+                        multipleTarget.tools.Add(directRight);
+                        Debug.Log($"Added {directRight.name} as tool to {goalMeshTransform.name}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"directRight is null - cannot add to {goalMeshTransform.name}");
+                    }
+                    
+                    if (directLeft != null)
+                    {
+                        multipleTarget.tools.Add(directLeft);
+                        Debug.Log($"Added {directLeft.name} as tool to {goalMeshTransform.name}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"directLeft is null - cannot add to {goalMeshTransform.name}");
+                    }
+                    
+                    Debug.Log($"Goal Mesh {goalMeshTransform.name} now has {multipleTarget.tools.Count} tools registered");
+                    
+                    // Check colliders on the Goal Mesh object
+                    EnsureButtonHasCollider(goalMeshTransform.gameObject, i);
+                }
+                else
+                {
+                    Debug.LogError($"Could not find Goal Mesh child object for button {i} ({buttonObjects[i].name})");
+                    
+                    // Fallback: add MultipleTarget to the main button object
+                    MultipleTarget multipleTarget = buttonObjects[i].GetComponent<MultipleTarget>();
+                    if (multipleTarget == null)
+                    {
+                        multipleTarget = buttonObjects[i].AddComponent<MultipleTarget>();
+                        Debug.Log($"Added MultipleTarget component to main button {i} as fallback");
+                    }
+                    
+                    // Clear existing tools and add VR hands as tools
+                    multipleTarget.tools.Clear();
+                    
+                    if (directRight != null)
+                    {
+                        multipleTarget.tools.Add(directRight);
+                    }
+                    if (directLeft != null)
+                    {
+                        multipleTarget.tools.Add(directLeft);
+                    }
+                    
+                    Debug.Log($"Main button {i} now has {multipleTarget.tools.Count} tools registered (fallback)");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"Button {i} is null!");
+            }
+        }
+        
+        Debug.Log("VR hand interactions setup complete.");
+        
+        // Debug: Log the final state of all button MultipleTarget components
+        LogButtonMultipleTargetStates();
+    }
+    
+    /// <summary>
+    /// Debug method to log the current state of all button MultipleTarget components
+    /// </summary>
+    private void LogButtonMultipleTargetStates()
+    {
+        Debug.Log("=== BUTTON MULTIPLE TARGET STATES ===");
+        for (int i = 0; i < buttonObjects.Count; i++)
+        {
+            if (buttonObjects[i] != null)
+            {
+                Debug.Log($"Button {i} ({buttonObjects[i].name}):");
+                
+                // Find the Goal Mesh child object
+                Transform goalMeshTransform = buttonObjects[i].transform.Find("LOGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("LIGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("RIGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("ROGoalMesh");
+                
+                if (goalMeshTransform == null)
+                {
+                    // Try to find any child with "GoalMesh" in the name
+                    foreach (Transform child in buttonObjects[i].transform)
+                    {
+                        if (child.name.Contains("GoalMesh"))
+                        {
+                            goalMeshTransform = child;
+                            break;
+                        }
+                    }
+                }
+                
+                if (goalMeshTransform != null)
+                {
+                    Target target = goalMeshTransform.GetComponent<Target>();
+                    if (target != null)
+                    {
+                        Debug.Log($"  GoalMesh: {goalMeshTransform.name}");
+                        Debug.Log($"  Target enabled: {target.enabled}");
+                        Debug.Log($"  TargetHit: {target.TargetHit}");
+                        Debug.Log($"  IsColliding: {target.IsColliding}");
+                        
+                        // Check colliders on the GoalMesh
+                        Collider[] colliders = goalMeshTransform.GetComponents<Collider>();
+                        Debug.Log($"  Colliders on GoalMesh: {colliders.Length}");
+                        foreach (var collider in colliders)
+                        {
+                            Debug.Log($"    Collider: {collider.GetType().Name}, isTrigger: {collider.isTrigger}, enabled: {collider.enabled}");
+                        }
+                        
+                        // Check for Rigidbody (needed for collision detection)
+                        Rigidbody rb = goalMeshTransform.GetComponent<Rigidbody>();
+                        Debug.Log($"  Rigidbody: {(rb != null ? "Present" : "MISSING")}");
+                        if (rb != null)
+                        {
+                            Debug.Log($"    Rigidbody: isKinematic={rb.isKinematic}, useGravity={rb.useGravity}");
+                        }
+                        
+                        // Check layer
+                        Debug.Log($"  Layer: {goalMeshTransform.gameObject.layer} ({LayerMask.LayerToName(goalMeshTransform.gameObject.layer)})");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"  GoalMesh {goalMeshTransform.name} has no Target component!");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"  No GoalMesh found for button {i}");
+                }
+            }
+        }
+        Debug.Log("=== END BUTTON STATES ===");
+    }
+    
+    /// <summary>
+    /// Manual test method to check button collision detection (for debugging)
+    /// </summary>
+    [ContextMenu("Test Button Collision Detection")]
+    private void TestButtonCollisionDetection()
+    {
+        Debug.Log("=== MANUAL BUTTON COLLISION TEST ===");
+        
+        if (!ExperimentController.Instance.UseVR)
+        {
+            Debug.LogWarning("This test is only for VR mode!");
+            return;
+        }
+        
+        // Log current VR hand positions and configuration
+        if (directRight != null)
+        {
+            Debug.Log($"Right hand position: {directRight.transform.position}");
+            Debug.Log($"Right hand layer: {directRight.layer} ({LayerMask.LayerToName(directRight.layer)})");
+            
+            // Check colliders on VR hand
+            Collider[] rightColliders = directRight.GetComponents<Collider>();
+            Debug.Log($"Right hand colliders: {rightColliders.Length}");
+            foreach (var collider in rightColliders)
+            {
+                Debug.Log($"  Right hand collider: {collider.GetType().Name}, isTrigger: {collider.isTrigger}, enabled: {collider.enabled}");
+            }
+            
+            // Check Rigidbody on VR hand
+            Rigidbody rightRB = directRight.GetComponent<Rigidbody>();
+            Debug.Log($"Right hand Rigidbody: {(rightRB != null ? "Present" : "MISSING")}");
+            if (rightRB != null)
+            {
+                Debug.Log($"  Right hand Rigidbody: isKinematic={rightRB.isKinematic}, useGravity={rightRB.useGravity}");
+            }
+        }
+        if (directLeft != null)
+        {
+            Debug.Log($"Left hand position: {directLeft.transform.position}");
+            Debug.Log($"Left hand layer: {directLeft.layer} ({LayerMask.LayerToName(directLeft.layer)})");
+            
+            // Check colliders on VR hand
+            Collider[] leftColliders = directLeft.GetComponents<Collider>();
+            Debug.Log($"Left hand colliders: {leftColliders.Length}");
+            foreach (var collider in leftColliders)
+            {
+                Debug.Log($"  Left hand collider: {collider.GetType().Name}, isTrigger: {collider.isTrigger}, enabled: {collider.enabled}");
+            }
+            
+            // Check Rigidbody on VR hand
+            Rigidbody leftRB = directLeft.GetComponent<Rigidbody>();
+            Debug.Log($"Left hand Rigidbody: {(leftRB != null ? "Present" : "MISSING")}");
+            if (leftRB != null)
+            {
+                Debug.Log($"  Left hand Rigidbody: isKinematic={leftRB.isKinematic}, useGravity={leftRB.useGravity}");
+            }
+        }
+        
+        // Check each button's collision state
+        for (int i = 0; i < buttonObjects.Count; i++)
+        {
+            if (buttonObjects[i] != null)
+            {
+                // Find the Goal Mesh child object
+                Transform goalMeshTransform = buttonObjects[i].transform.Find("LOGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("LIGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("RIGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("ROGoalMesh");
+                
+                if (goalMeshTransform == null)
+                {
+                    // Try to find any child with "GoalMesh" in the name
+                    foreach (Transform child in buttonObjects[i].transform)
+                    {
+                        if (child.name.Contains("GoalMesh"))
+                        {
+                            goalMeshTransform = child;
+                            break;
+                        }
+                    }
+                }
+                
+                if (goalMeshTransform != null)
+                {
+                    MultipleTarget multipleTarget = goalMeshTransform.GetComponent<MultipleTarget>();
+                    if (multipleTarget != null)
+                    {
+                        Debug.Log($"Button {i} ({goalMeshTransform.name}):");
+                        Debug.Log($"  Position: {goalMeshTransform.position}");
+                        Debug.Log($"  IsToolColliding: {multipleTarget.IsToolCollding}");
+                        Debug.Log($"  Tools count: {multipleTarget.tools.Count}");
+                        
+                        // Calculate distances to VR hands
+                        if (directRight != null)
+                        {
+                            float distanceToRight = Vector3.Distance(directRight.transform.position, goalMeshTransform.position);
+                            Debug.Log($"  Distance to right hand: {distanceToRight:F3}");
+                        }
+                        if (directLeft != null)
+                        {
+                            float distanceToLeft = Vector3.Distance(directLeft.transform.position, goalMeshTransform.position);
+                            Debug.Log($"  Distance to left hand: {distanceToLeft:F3}");
+                        }
+                    }
+                }
+            }
+        }
+        
+        Debug.Log("=== END MANUAL TEST ===");
+    }
+    
+    /// <summary>
+    /// Automatically setup VR hand interactions at the start of each trial
+    /// </summary>
+    private void AutoSetupVRHandInteractions()
+    {
+        Debug.Log("Auto-setting up VR hand interactions...");
+        
+        // Ensure VR components are found
+        if (directRight == null)
+        {
+            directRight = GameObject.Find("RH Direct Interactor");
+            if (directRight == null) directRight = GameObject.Find("RightHand Direct Interactor");
+            if (directRight == null) directRight = GameObject.Find("Right Direct Interactor");
+        }
+        
+        if (directLeft == null)
+        {
+            directLeft = GameObject.Find("LH Direct Interactor");
+            if (directLeft == null) directLeft = GameObject.Find("LeftHand Direct Interactor");
+            if (directLeft == null) directLeft = GameObject.Find("Left Direct Interactor");
+        }
+        
+        Debug.Log($"VR Hands found - Right: {(directRight != null ? directRight.name : "NOT FOUND")}, Left: {(directLeft != null ? directLeft.name : "NOT FOUND")}");
+        
+        // Setup dock interaction
+        if (dock != null && directRight != null)
+        {
+            dock.GetComponent<Target>().SetProjectile(directRight);
+            Debug.Log($"Dock projectile set to: {directRight.name}");
+        }
+        
+        // Setup button interactions
+        for (int i = 0; i < buttonObjects.Count; i++)
+        {
+            if (buttonObjects[i] != null)
+            {
+                // Find the Goal Collider child object (this has the trigger collider and Rigidbody)
+                Transform goalColliderTransform = buttonObjects[i].transform.Find("LO Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("LI Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("RI Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("RO Goal Collider");
+                
+                if (goalColliderTransform == null)
+                {
+                    // Try to find any child with "Goal Collider" in the name
+                    foreach (Transform child in buttonObjects[i].transform)
+                    {
+                        if (child.name.Contains("Goal Collider"))
+                        {
+                            goalColliderTransform = child;
+                            break;
+                        }
+                    }
+                }
+                
+                if (goalColliderTransform != null)
+                {
+                    // Use MultipleTarget component on the Goal Collider (same as BongoTask)
+                    MultipleTarget multipleTarget = goalColliderTransform.GetComponent<MultipleTarget>();
+                    if (multipleTarget == null)
+                    {
+                        multipleTarget = goalColliderTransform.gameObject.AddComponent<MultipleTarget>();
+                        Debug.Log($"Added MultipleTarget component to {goalColliderTransform.name}");
+                    }
+                    
+                    // Clear and add VR hands as tools (same as BongoTask)
+                    multipleTarget.tools.Clear();
+                    
+                    if (directRight != null)
+                    {
+                        multipleTarget.tools.Add(directRight);
+                        Debug.Log($"Added {directRight.name} as tool to {goalColliderTransform.name}");
+                    }
+                    
+                    if (directLeft != null)
+                    {
+                        multipleTarget.tools.Add(directLeft);
+                        Debug.Log($"Added {directLeft.name} as tool to {goalColliderTransform.name}");
+                    }
+                    
+                    Debug.Log($"Goal Collider {goalColliderTransform.name} now has {multipleTarget.tools.Count} tools registered");
+                    
+                    // Enable capsule collider for VR mode (disable for 2D cursor mode)
+                    CapsuleCollider capsuleCollider = goalColliderTransform.GetComponent<CapsuleCollider>();
+                    if (capsuleCollider != null)
+                    {
+                        capsuleCollider.enabled = true; // Enable for VR mode
+                        Debug.Log($"Enabled capsule collider on {goalColliderTransform.name} for VR mode");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"No capsule collider found on {goalColliderTransform.name}");
+                    }
+                    
+                    // Ensure proper collider setup
+                    EnsureButtonHasCollider(goalColliderTransform.gameObject, i);
+                }
+                else
+                {
+                    Debug.LogWarning($"Could not find Goal Collider for button {i} ({buttonObjects[i].name})");
+                }
+            }
+        }
+        
+        Debug.Log("Auto VR hand interactions setup complete.");
+    }
+    
+    /// <summary>
+    /// Disable capsule colliders for 2D cursor mode
+    /// </summary>
+    private void DisableCapsuleCollidersFor2D()
+    {
+        Debug.Log("Disabling capsule colliders for 2D cursor mode...");
+        
+        for (int i = 0; i < buttonObjects.Count; i++)
+        {
+            if (buttonObjects[i] != null)
+            {
+                // Find the Goal Collider child object
+                Transform goalColliderTransform = buttonObjects[i].transform.Find("LO Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("LI Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("RI Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("RO Goal Collider");
+                
+                if (goalColliderTransform == null)
+                {
+                    // Try to find any child with "Goal Collider" in the name
+                    foreach (Transform child in buttonObjects[i].transform)
+                    {
+                        if (child.name.Contains("Goal Collider"))
+                        {
+                            goalColliderTransform = child;
+                            break;
+                        }
+                    }
+                }
+                
+                if (goalColliderTransform != null)
+                {
+                    // Disable capsule collider for 2D mode
+                    CapsuleCollider capsuleCollider = goalColliderTransform.GetComponent<CapsuleCollider>();
+                    if (capsuleCollider != null)
+                    {
+                        capsuleCollider.enabled = false;
+                        Debug.Log($"Disabled capsule collider on {goalColliderTransform.name} for 2D cursor mode");
+                    }
+                }
+            }
+        }
+        
+        Debug.Log("Capsule colliders disabled for 2D cursor mode.");
+    }
+    
+    /// <summary>
+    /// Start trial with a delay to prevent VR hand clipping with buttons
+    /// </summary>
+    private IEnumerator DelayedStartTrial(float delay)
+    {
+        Debug.Log($"Waiting {delay} seconds before starting trial to prevent hand clipping...");
+        yield return new WaitForSeconds(delay);
+        Debug.Log("Delay complete - starting trial now");
+        StartTrial();
+    }
+    
+    /// <summary>
+    /// Manual method to force VR hand setup (for debugging)
+    /// </summary>
+    [ContextMenu("Force VR Hand Setup")]
+    private void ForceVRHandSetup()
+    {
+        Debug.Log("=== FORCING VR HAND SETUP ===");
+        
+        if (!ExperimentController.Instance.UseVR)
+        {
+            Debug.LogWarning("Not in VR mode! This method only works in VR mode.");
+            return;
+        }
+        
+        // Force find VR hands again
+        directRight = GameObject.Find("RH Direct Interactor");
+        if (directRight == null) directRight = GameObject.Find("RightHand Direct Interactor");
+        if (directRight == null) directRight = GameObject.Find("Right Direct Interactor");
+        
+        directLeft = GameObject.Find("LH Direct Interactor");
+        if (directLeft == null) directLeft = GameObject.Find("LeftHand Direct Interactor");
+        if (directLeft == null) directLeft = GameObject.Find("Left Direct Interactor");
+        
+        Debug.Log($"Force found VR hands - Right: {(directRight != null ? directRight.name : "NOT FOUND")}, Left: {(directLeft != null ? directLeft.name : "NOT FOUND")}");
+        
+        // Force setup
+        AutoSetupVRHandInteractions();
+        
+        Debug.Log("=== FORCE VR HAND SETUP COMPLETE ===");
+    }
+    
+    /// <summary>
+    /// Fix common collision detection issues by adding Rigidbodies if needed
+    /// </summary>
+    [ContextMenu("Fix Collision Detection Issues")]
+    private void FixCollisionDetectionIssues()
+    {
+        Debug.Log("=== FIXING COLLISION DETECTION ISSUES ===");
+        
+        if (!ExperimentController.Instance.UseVR)
+        {
+            Debug.LogWarning("This fix is only for VR mode!");
+            return;
+        }
+        
+        int fixedCount = 0;
+        
+        // Fix VR hands - add Rigidbodies if missing
+        if (directRight != null)
+        {
+            Rigidbody rightRB = directRight.GetComponent<Rigidbody>();
+            if (rightRB == null)
+            {
+                rightRB = directRight.AddComponent<Rigidbody>();
+                rightRB.isKinematic = true; // Kinematic for VR hands
+                rightRB.useGravity = false;
+                Debug.Log($"Added Rigidbody to right hand: {directRight.name}");
+                fixedCount++;
+            }
+        }
+        
+        if (directLeft != null)
+        {
+            Rigidbody leftRB = directLeft.GetComponent<Rigidbody>();
+            if (leftRB == null)
+            {
+                leftRB = directLeft.AddComponent<Rigidbody>();
+                leftRB.isKinematic = true; // Kinematic for VR hands
+                leftRB.useGravity = false;
+                Debug.Log($"Added Rigidbody to left hand: {directLeft.name}");
+                fixedCount++;
+            }
+        }
+        
+        // Fix button GoalMesh objects - add Rigidbodies if missing
+        for (int i = 0; i < buttonObjects.Count; i++)
+        {
+            if (buttonObjects[i] != null)
+            {
+                // Find the Goal Mesh child object
+                Transform goalMeshTransform = buttonObjects[i].transform.Find("LOGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("LIGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("RIGoalMesh") ?? 
+                                            buttonObjects[i].transform.Find("ROGoalMesh");
+                
+                if (goalMeshTransform == null)
+                {
+                    // Try to find any child with "GoalMesh" in the name
+                    foreach (Transform child in buttonObjects[i].transform)
+                    {
+                        if (child.name.Contains("GoalMesh"))
+                        {
+                            goalMeshTransform = child;
+                            break;
+                        }
+                    }
+                }
+                
+                if (goalMeshTransform != null)
+                {
+                    Rigidbody goalRB = goalMeshTransform.GetComponent<Rigidbody>();
+                    if (goalRB == null)
+                    {
+                        goalRB = goalMeshTransform.gameObject.AddComponent<Rigidbody>();
+                        goalRB.isKinematic = true; // Kinematic for static buttons
+                        goalRB.useGravity = false;
+                        Debug.Log($"Added Rigidbody to GoalMesh: {goalMeshTransform.name}");
+                        fixedCount++;
+                    }
+                    
+                    // Ensure colliders are not triggers (for collision detection)
+                    Collider[] colliders = goalMeshTransform.GetComponents<Collider>();
+                    foreach (var collider in colliders)
+                    {
+                        if (collider.isTrigger)
+                        {
+                            collider.isTrigger = false;
+                            Debug.Log($"Changed {goalMeshTransform.name} collider from trigger to collision");
+                            fixedCount++;
+                        }
+                    }
+                }
+            }
+        }
+        
+        Debug.Log($"=== FIXED {fixedCount} COLLISION DETECTION ISSUES ===");
+        
+        if (fixedCount > 0)
+        {
+            Debug.Log("Please test the VR interaction again. The collision detection should now work properly.");
+        }
+        else
+        {
+            Debug.Log("No collision detection issues found. The problem might be elsewhere.");
+        }
+    }
+    
+    /// <summary>
+    /// Ensure button has proper collider for VR interaction
+    /// </summary>
+    private void EnsureButtonHasCollider(GameObject button, int buttonIndex)
+    {
+        if (button == null) return;
+        
+        // Check if button has any collider
+        Collider[] colliders = button.GetComponents<Collider>();
+        Debug.Log($"Button {buttonIndex} ({button.name}) has {colliders.Length} colliders");
+        
+        if (colliders.Length == 0)
+        {
+            // Add a box collider if no collider exists
+            BoxCollider boxCollider = button.AddComponent<BoxCollider>();
+            boxCollider.isTrigger = false; // Make it a solid collider for VR interaction
+            Debug.Log($"Added BoxCollider to button {buttonIndex}");
+        }
+        else
+        {
+            // Log existing collider details
+            foreach (var collider in colliders)
+            {
+                Debug.Log($"  Collider: {collider.GetType().Name}, isTrigger: {collider.isTrigger}, enabled: {collider.enabled}");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Check for VR hand button interactions using the MultipleTarget system (same as BongoTask)
+    /// </summary>
+    private void CheckVRButtonInteractions()
+    {
+        for (int i = 0; i < buttonObjects.Count; i++)
+        {
+            if (buttonObjects[i] != null)
+            {
+                // Find the Goal Collider child object
+                Transform goalColliderTransform = buttonObjects[i].transform.Find("LO Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("LI Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("RI Goal Collider") ?? 
+                                                buttonObjects[i].transform.Find("RO Goal Collider");
+                
+                if (goalColliderTransform == null)
+                {
+                    // Try to find any child with "Goal Collider" in the name
+                    foreach (Transform child in buttonObjects[i].transform)
+                    {
+                        if (child.name.Contains("Goal Collider"))
+                        {
+                            goalColliderTransform = child;
+                            break;
+                        }
+                    }
+                }
+                
+                if (goalColliderTransform != null)
+                {
+                    MultipleTarget multipleTarget = goalColliderTransform.GetComponent<MultipleTarget>();
+                    if (multipleTarget != null)
+                    {
+                        // Check if VR hand is colliding with button (same as BongoTask but only check IsToolCollding)
+                        if (multipleTarget.IsToolCollding)
+                        {
+                            // VR hand is colliding with button - trigger response
+                            string buttonLabel = buttonTexts[i].text;
+                            Debug.Log($"VR hand hit button: {buttonLabel}");
+                            OnButtonResponse(buttonLabel);
+                            break; // Only process one button at a time
+                        }
+                        
+                        // Debug: Log collision states for troubleshooting
+                        if (Time.frameCount % 60 == 0) // Log every 60 frames (once per second)
+                        {
+                            Debug.Log($"Button {i} ({goalColliderTransform.name}): IsToolColliding={multipleTarget.IsToolCollding}, Tools.Count={multipleTarget.tools.Count}");
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"Goal Collider {goalColliderTransform.name} has no MultipleTarget component!");
+                    }
+                }
             }
         }
     }

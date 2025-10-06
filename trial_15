@@ -1,14 +1,15 @@
 {
-    "experiment": "stroop_experiment_2d",
+    "experiment": "stroop_experiment",
     "ppid": "001",
     "session_num": 1,
     "trial_num": 16,
     "block_num": 2,
     "trial_num_in_block": 6,
-    "start_time": 42.143989562988281,
-    "end_time": 44.843105316162109,
+    "start_time": 58.399139404296875,
+    "end_time": 61.926555633544922,
     "completed": true,
     "response": "yellow",
     "correct": true,
-    "reaction_time": 1.6179695129394531
+    "reaction_time": 1.54583740234375
+}31
 }

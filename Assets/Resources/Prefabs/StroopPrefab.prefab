@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 3465758667524003244}
   - component: {fileID: 3356363761056296827}
   - component: {fileID: 6513723727391789155}
+  - component: {fileID: 5287290304789286332}
   m_Layer: 0
   m_Name: RIGoalMesh
   m_TagString: Untagged
@@ -106,6 +107,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -2432090755550338912, guid: 7906bf0ebc95be944beee90a3873f019, type: 3}
+--- !u!114 &5287290304789286332
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60019730249808026}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a613712577a3d3d429674385fd195e2f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tools: []
+  targets: []
 --- !u!1 &186730904846356359
 GameObject:
   m_ObjectHideFlags: 0
@@ -1927,6 +1942,7 @@ GameObject:
   - component: {fileID: 2535176803562253230}
   - component: {fileID: 6838509337682036175}
   - component: {fileID: 336175355142178055}
+  - component: {fileID: 5581625090202901732}
   m_Layer: 0
   m_Name: ROGoalMesh
   m_TagString: Untagged
@@ -2021,6 +2037,21 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -2432090755550338912, guid: 7906bf0ebc95be944beee90a3873f019, type: 3}
+--- !u!114 &5581625090202901732
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3809621285622295403}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a613712577a3d3d429674385fd195e2f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tools:
+  - {fileID: 0}
+  targets: []
 --- !u!1 &3995028837629259400
 GameObject:
   m_ObjectHideFlags: 0
@@ -3600,6 +3631,7 @@ GameObject:
   - component: {fileID: 2184553608146912580}
   - component: {fileID: 1602745374428488130}
   - component: {fileID: 886751390759114056}
+  - component: {fileID: 6220502840127687016}
   m_Layer: 0
   m_Name: LOGoalMesh
   m_TagString: Untagged
@@ -3694,6 +3726,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -2432090755550338912, guid: 7906bf0ebc95be944beee90a3873f019, type: 3}
+--- !u!114 &6220502840127687016
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7187382513495287207}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a613712577a3d3d429674385fd195e2f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tools: []
+  targets: []
 --- !u!1 &7428171666410938166
 GameObject:
   m_ObjectHideFlags: 0
@@ -3847,6 +3893,7 @@ GameObject:
   - component: {fileID: 7809634920844064862}
   - component: {fileID: 893468358934565784}
   - component: {fileID: 81498595388841865}
+  - component: {fileID: 5142611337959724289}
   m_Layer: 0
   m_Name: LIGoalMesh
   m_TagString: Untagged
@@ -3941,6 +3988,20 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: -2432090755550338912, guid: 7906bf0ebc95be944beee90a3873f019, type: 3}
+--- !u!114 &5142611337959724289
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7809946693422804468}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a613712577a3d3d429674385fd195e2f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tools: []
+  targets: []
 --- !u!1 &7882410903638257240
 GameObject:
   m_ObjectHideFlags: 0
@@ -4888,6 +4949,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Button_4
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 06c833d75e2aa6e4c89a863da30d3c97,
+        type: 3}
+      propertyPath: m_TagString
+      value: Button
+      objectReference: {fileID: 0}
     - target: {fileID: 7899099928202489408, guid: 06c833d75e2aa6e4c89a863da30d3c97,
         type: 3}
       propertyPath: m_LocalPosition.y
@@ -5718,6 +5784,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: Button_2
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4c7ba177db0a7de449ba9e8294ca35a8,
+        type: 3}
+      propertyPath: m_TagString
+      value: Button
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: -7511558181221131132, guid: 4c7ba177db0a7de449ba9e8294ca35a8, type: 3}
@@ -6639,6 +6710,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Button_1
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4c7ba177db0a7de449ba9e8294ca35a8,
+        type: 3}
+      propertyPath: m_TagString
+      value: Button
+      objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: -7511558181221131132, guid: 4c7ba177db0a7de449ba9e8294ca35a8, type: 3}
     - {fileID: -5754084199372789682, guid: 4c7ba177db0a7de449ba9e8294ca35a8, type: 3}
@@ -7533,6 +7609,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: Button_3
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4c7ba177db0a7de449ba9e8294ca35a8,
+        type: 3}
+      propertyPath: m_TagString
+      value: Button
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: -7511558181221131132, guid: 4c7ba177db0a7de449ba9e8294ca35a8, type: 3}
