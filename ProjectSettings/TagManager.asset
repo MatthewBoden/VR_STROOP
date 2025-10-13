@@ -12,6 +12,7 @@ TagManager:
   - Dock
   - Hand
   - Controller
+  - Button
   layers:
   - Default
   - TransparentFX

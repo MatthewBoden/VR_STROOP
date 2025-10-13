@@ -62,10 +62,28 @@ public class StroopTask : BaseTask
         { "yellow", Color.yellow }
     };
     
+    // Direction-specific data for blocks 3 and 4
+    private Dictionary<string, string> directionMap = new Dictionary<string, string>
+    {
+        { "up", "↑" },
+        { "down", "↓" },
+        { "left", "←" },
+        { "right", "→" }
+    };
+    
+    private Dictionary<string, string> oppositeDirectionMap = new Dictionary<string, string>
+    {
+        { "up", "down" },
+        { "down", "up" },
+        { "left", "right" },
+        { "right", "left" }
+    };
+    
     // Trial data
     private string currentWord = "";
     private Color currentColor = Color.white;
     private string correctAnswer = "";
+    private string currentDirection = "";
     private int currentBlock = 0;
     private float trialStartTime = 0f;
     private float reactionTime = 0f;
@@ -90,6 +108,7 @@ public class StroopTask : BaseTask
     private List<bool> correctResponses = new List<bool>();
     private List<string> presentedWords = new List<string>();
     private List<string> presentedColors = new List<string>();
+    private List<string> presentedDirections = new List<string>();
     private List<string> correctAnswers = new List<string>();
     private List<string> participantResponses = new List<string>();
     
@@ -98,6 +117,7 @@ public class StroopTask : BaseTask
     private List<bool> blockCorrectResponses = new List<bool>();
     private List<string> blockPresentedWords = new List<string>();
     private List<string> blockPresentedColors = new List<string>();
+    private List<string> blockPresentedDirections = new List<string>();
     private List<string> blockCorrectAnswers = new List<string>();
     private List<string> blockParticipantResponses = new List<string>();
     private int blockCorrect = 0;
@@ -211,23 +231,13 @@ public class StroopTask : BaseTask
                                 ExperimentController.Instance.Session.EndCurrentTrial();
                                 Debug.Log($"Current block after trial end: {ExperimentController.Instance.Session.currentBlockNum}");
                                 
-                                // Check if we need to manually advance to next block
-                                if (ExperimentController.Instance.Session.currentBlockNum < ExperimentController.Instance.Session.blocks.Count)
-                                {
-                                    // Manually advance to next block since UXF doesn't do this automatically
-                                    ExperimentController.Instance.Session.currentBlockNum++;
-                                    Debug.Log($"Manually advanced to block: {ExperimentController.Instance.Session.currentBlockNum}");
-                                }
+                                // Let UXF handle block transitions automatically
+                                Debug.Log($"Block {ExperimentController.Instance.Session.currentBlockNum} completed, letting UXF handle block transition");
                             }
                             catch (System.Exception e)
                             {
                                 Debug.LogWarning($"Could not end trial automatically: {e.Message}");
-                                // Fallback: manually advance to next block
-                                if (ExperimentController.Instance.Session.currentBlockNum < ExperimentController.Instance.Session.blocks.Count)
-                                {
-                                    ExperimentController.Instance.Session.currentBlockNum++;
-                                    Debug.Log($"Manually advanced to block: {ExperimentController.Instance.Session.currentBlockNum}");
-                                }
+                                Debug.LogWarning("Letting UXF handle block transitions automatically");
                             }
                         }
                         else
@@ -296,6 +306,10 @@ public class StroopTask : BaseTask
         Debug.Log($"Current block number: {ExperimentController.Instance.Session.currentBlockNum}");
         Debug.Log($"Total blocks in session: {ExperimentController.Instance.Session.blocks.Count}");
         
+        // IMMEDIATE DEBUG: Check what block type is detected
+        string immediateBlockType = GetCurrentBlockType();
+        Debug.Log($"IMMEDIATE DEBUG: Block {ExperimentController.Instance.Session.currentBlockNum} detected as type: '{immediateBlockType}'");
+        
         // Reset block waiting flag
         waitingForNextBlock = false;
         
@@ -306,7 +320,9 @@ public class StroopTask : BaseTask
             buttonContainer.SetActive(true);
         
         // Generate trial parameters
+        Debug.Log($"BEFORE GenerateTrialParameters: Word='{currentWord}', Correct='{correctAnswer}'");
         GenerateTrialParameters();
+        Debug.Log($"AFTER GenerateTrialParameters: Word='{currentWord}', Correct='{correctAnswer}'");
         
         // Display the word
         DisplayWord();
@@ -405,7 +421,7 @@ public class StroopTask : BaseTask
                         {
                             multipleTarget.ResetState();
                         }
-                        Debug.Log($"MultipleTarget on {goalColliderTransform.name} {(active ? "enabled" : "disabled")}");
+                        // Debug.Log($"MultipleTarget on {goalColliderTransform.name} {(active ? "enabled" : "disabled")}");
                     }
                     
                     // Enable/disable capsule collider based on VR mode
@@ -415,12 +431,12 @@ public class StroopTask : BaseTask
                         if (ExperimentController.Instance.UseVR)
                         {
                             capsuleCollider.enabled = active; // Enable/disable based on button state in VR mode
-                            Debug.Log($"Capsule collider on {goalColliderTransform.name} {(active ? "enabled" : "disabled")} for VR mode");
+                            // Debug.Log($"Capsule collider on {goalColliderTransform.name} {(active ? "enabled" : "disabled")} for VR mode");
                         }
                         else
                         {
                             capsuleCollider.enabled = false; // Always disabled for 2D cursor mode
-                            Debug.Log($"Capsule collider on {goalColliderTransform.name} disabled for 2D cursor mode");
+                            // Debug.Log($"Capsule collider on {goalColliderTransform.name} disabled for 2D cursor mode");
                         }
                     }
                 }
@@ -435,7 +451,7 @@ public class StroopTask : BaseTask
                         {
                             multipleTarget.ResetState();
                         }
-                        Debug.Log($"MultipleTarget on main button {i} {(active ? "enabled" : "disabled")} (fallback)");
+                        // Debug.Log($"MultipleTarget on main button {i} {(active ? "enabled" : "disabled")} (fallback)");
                     }
                 }
             }
@@ -550,6 +566,7 @@ public class StroopTask : BaseTask
         correctResponses.Clear();
         presentedWords.Clear();
         presentedColors.Clear();
+        presentedDirections.Clear();
         correctAnswers.Clear();
         participantResponses.Clear();
         leftHandPos.Clear();
@@ -591,6 +608,7 @@ public class StroopTask : BaseTask
         blockCorrectResponses.Clear();
         blockPresentedWords.Clear();
         blockPresentedColors.Clear();
+        blockPresentedDirections.Clear();
         blockCorrectAnswers.Clear();
         blockParticipantResponses.Clear();
         
@@ -605,6 +623,41 @@ public class StroopTask : BaseTask
     public override void TaskBegin()
     {
         base.TaskBegin();
+        
+        // DEBUG: Check what trial name UXF is using
+        try
+        {
+            string uxfTrialName = ExperimentController.Instance.Session.CurrentTrial.settings.GetString("trial_name");
+            Debug.Log($"UXF TRIAL NAME: '{uxfTrialName}' for Block {ExperimentController.Instance.Session.currentBlockNum}, Trial {ExperimentController.Instance.Session.CurrentTrial.numberInBlock}");
+        }
+        catch
+        {
+            Debug.Log($"UXF TRIAL NAME: NOT FOUND for Block {ExperimentController.Instance.Session.currentBlockNum}, Trial {ExperimentController.Instance.Session.CurrentTrial.numberInBlock}");
+        }
+        
+        // DEBUG: Check the per_block_target_location array
+        try
+        {
+            var perBlockTargetLocation = ExperimentController.Instance.Session.settings.GetStringList("per_block_target_location");
+            Debug.Log($"per_block_target_location array: [{string.Join(", ", perBlockTargetLocation)}]");
+            if (perBlockTargetLocation != null && ExperimentController.Instance.Session.currentBlockNum > 0 && ExperimentController.Instance.Session.currentBlockNum <= perBlockTargetLocation.Count)
+            {
+                string expectedBlockType = perBlockTargetLocation[ExperimentController.Instance.Session.currentBlockNum - 1];
+                Debug.Log($"Expected block type for Block {ExperimentController.Instance.Session.currentBlockNum}: '{expectedBlockType}'");
+                
+                // DEBUG: Check if this is the first trial of a new block
+                if (ExperimentController.Instance.Session.CurrentTrial.numberInBlock == 1)
+                {
+                    Debug.Log($"=== STARTING NEW BLOCK {ExperimentController.Instance.Session.currentBlockNum} ===");
+                    Debug.Log($"Block type: {expectedBlockType}");
+                    Debug.Log($"Expected first trial: {expectedBlockType}_trial_1");
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Error reading per_block_target_location: {e.Message}");
+        }
         
         // Reset block-specific data for new block
         ResetBlockData();
@@ -654,11 +707,15 @@ public class StroopTask : BaseTask
 
     private void GenerateTrialParameters()
     {
+        Debug.Log($"=== GenerateTrialParameters: Block {ExperimentController.Instance.Session.currentBlockNum}, Trial {ExperimentController.Instance.Session.CurrentTrial.numberInBlock} ===");
+        Debug.Log($"GenerateTrialParameters: BEFORE - Word='{currentWord}', Correct='{correctAnswer}'");
+        
         // Get current trial data from JSON - use fallback if trial_name doesn't exist
         string currentTrialName;
         try
         {
             currentTrialName = ExperimentController.Instance.Session.CurrentTrial.settings.GetString("trial_name");
+            Debug.Log($"GenerateTrialParameters: Found trial_name in session settings: '{currentTrialName}'");
         }
         catch (System.Collections.Generic.KeyNotFoundException)
         {
@@ -666,56 +723,8 @@ public class StroopTask : BaseTask
             int trialNumber = ExperimentController.Instance.Session.CurrentTrial.numberInBlock;
             int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
             
-            // Try to get block type from session settings
-            string blockType = "congruent"; // default
-            try
-            {
-                // Try to get block type from current block settings
-                var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
-                try
-                {
-                    // First try to get block_type directly
-                    blockType = blockSettings.GetString("block_type");
-                    Debug.Log($"Found block_type in settings: {blockType}");
-                }
-                catch
-                {
-                    try
-                    {
-                        // Try to get from target_location (this is what the JSON uses)
-                        string targetLocation = blockSettings.GetString("target_location");
-                        Debug.Log($"Found target_location in settings: {targetLocation}");
-                        if (targetLocation != null && (targetLocation == "congruent" || targetLocation == "incongruent"))
-                        {
-                            blockType = targetLocation;
-                        }
-                    }
-                    catch
-                    {
-                        try
-                        {
-                            string taskType = blockSettings.GetString("task");
-                            Debug.Log($"Found task in settings: {taskType}");
-                            if (taskType.ToLower().Contains("incongruent"))
-                            {
-                                blockType = "incongruent";
-                            }
-                        }
-                        catch
-                        {
-                            // If we can't determine block type, try alternating
-                            blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
-                            Debug.Log($"Using alternating block type: {blockType} (block {blockNumber})");
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // If we can't determine block type, try alternating
-                blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
-                Debug.Log($"Using alternating block type (fallback): {blockType} (block {blockNumber})");
-            }
+            // Use the GetCurrentBlockType method for consistent block type detection
+            string blockType = GetCurrentBlockType();
             
             currentTrialName = $"{blockType}_trial_{trialNumber}";
             Debug.Log($"=== BLOCK TYPE DETECTION RESULT ===");
@@ -725,6 +734,10 @@ public class StroopTask : BaseTask
             Debug.Log($"Generated trial name: {currentTrialName}");
             Debug.Log($"=== END BLOCK TYPE DETECTION ===");
             Debug.LogWarning($"trial_name not found, using generated name: {currentTrialName} (blockType: {blockType}, trialNumber: {trialNumber}, blockNumber: {blockNumber})");
+            
+            // Manually set the trial name in the session settings so UXF can use it
+            ExperimentController.Instance.Session.CurrentTrial.settings["trial_name"] = currentTrialName;
+            Debug.Log($"Manually set trial_name in session settings: '{currentTrialName}'");
         }
         
         // Get trial data from session settings
@@ -733,6 +746,7 @@ public class StroopTask : BaseTask
         // Debug: Log trial data structure
         Debug.Log($"Trial data type: {trialData?.GetType()}");
         Debug.Log($"Trial data is null: {trialData == null}");
+        Debug.Log($"Looking for trial: {currentTrialName}");
         
         if (trialData != null)
         {
@@ -750,6 +764,11 @@ public class StroopTask : BaseTask
             if (!trialDataDict.ContainsKey(currentTrialName))
             {
                 Debug.LogWarning($"Trial '{currentTrialName}' not found in data. Available keys: {string.Join(", ", trialDataDict.Keys)}");
+                
+                // Debug: Check if there are any trials that start with the block type
+                string blockType = GetCurrentBlockType();
+                var matchingTrials = trialDataDict.Keys.Where(key => key.StartsWith(blockType)).ToList();
+                Debug.Log($"Trials starting with '{blockType}': {string.Join(", ", matchingTrials)}");
             }
             
                 if (trialDataDict.ContainsKey(currentTrialName))
@@ -758,31 +777,65 @@ public class StroopTask : BaseTask
                     
                     if (currentTrialData != null)
                     {
-                        // Extract trial parameters from JSON
-                        currentWord = currentTrialData["displayed_word"].ToString();
-                        string colorName = currentTrialData["displayed_color"].ToString();
-                        correctAnswer = currentTrialData["correct_answer"].ToString();
+                        Debug.Log($"GenerateTrialParameters: Found trial data for '{currentTrialName}' with keys: {string.Join(", ", currentTrialData.Keys)}");
                         
-                        Debug.Log($"Found trial data for {currentTrialName}: Word='{currentWord}', Color='{colorName}', Correct='{correctAnswer}'");
-                    
-                    // Convert color name to Unity Color
-                    if (colorMap.ContainsKey(colorName))
-                    {
-                        currentColor = colorMap[colorName];
-                        Debug.Log($"Color converted: '{colorName}' -> {currentColor}");
-                        Debug.Log($"Color RGB: R={currentColor.r}, G={currentColor.g}, B={currentColor.b}, A={currentColor.a}");
-                    }
-                    else
-                    {
-                        Debug.LogError($"Unknown color: {colorName}");
-                        Debug.LogError($"Available colors in colorMap: {string.Join(", ", colorMap.Keys)}");
-                        currentColor = Color.white;
-                    }
-                    
-                    // Store trial data
-                    presentedWords.Add(currentWord);
-                    presentedColors.Add(colorName);
-                    correctAnswers.Add(correctAnswer);
+                        // Check if this is a direction-based block by checking the block type
+                        string blockType = GetCurrentBlockType();
+                        Debug.Log($"GenerateTrialParameters: Block type detected as '{blockType}' for block {ExperimentController.Instance.Session.currentBlockNum}");
+                        Debug.Log($"GenerateTrialParameters: Trial data keys: {string.Join(", ", currentTrialData.Keys)}");
+                        
+                        // Check if trial data has direction keys or color keys
+                        bool hasDirectionKeys = currentTrialData.ContainsKey("displayed_direction");
+                        bool hasColorKeys = currentTrialData.ContainsKey("displayed_word") && currentTrialData.ContainsKey("displayed_color");
+                        Debug.Log($"GenerateTrialParameters: Has direction keys: {hasDirectionKeys}, Has color keys: {hasColorKeys}");
+                        
+                        if (blockType == "direction_same" || blockType == "direction_opposite")
+                        {
+                            // Handle direction-based trials
+                            currentDirection = currentTrialData["displayed_direction"].ToString();
+                            correctAnswer = currentTrialData["correct_answer"].ToString();
+                            
+                            // For direction blocks, display the arrow symbol
+                            currentWord = directionMap.ContainsKey(currentDirection) ? directionMap[currentDirection] : currentDirection;
+                            currentColor = Color.white; // Use white color for direction arrows
+                            
+                            Debug.Log($"Found direction trial data for {currentTrialName}: Direction='{currentDirection}', Arrow='{currentWord}', Correct='{correctAnswer}'");
+                            
+                            // Store trial data
+                            presentedWords.Add(currentWord);
+                            presentedColors.Add(""); // Empty for direction trials
+                            presentedDirections.Add(currentDirection);
+                            correctAnswers.Add(correctAnswer);
+                        }
+                        else
+                        {
+                            // Handle color-based trials (blocks 1 and 2)
+                            currentWord = currentTrialData["displayed_word"].ToString();
+                            string colorName = currentTrialData["displayed_color"].ToString();
+                            correctAnswer = currentTrialData["correct_answer"].ToString();
+                            
+                            Debug.Log($"Found COLOR trial data for {currentTrialName}: Word='{currentWord}', Color='{colorName}', Correct='{correctAnswer}'");
+                        
+                            // Convert color name to Unity Color
+                            if (colorMap.ContainsKey(colorName))
+                            {
+                                currentColor = colorMap[colorName];
+                                Debug.Log($"Color converted: '{colorName}' -> {currentColor}");
+                                Debug.Log($"Color RGB: R={currentColor.r}, G={currentColor.g}, B={currentColor.b}, A={currentColor.a}");
+                            }
+                            else
+                            {
+                                Debug.LogError($"Unknown color: {colorName}");
+                                Debug.LogError($"Available colors in colorMap: {string.Join(", ", colorMap.Keys)}");
+                                currentColor = Color.white;
+                            }
+                            
+                            // Store trial data
+                            presentedWords.Add(currentWord);
+                            presentedColors.Add(colorName);
+                            presentedDirections.Add(""); // Empty for color trials
+                            correctAnswers.Add(correctAnswer);
+                        }
                 }
                 else
                 {
@@ -801,6 +854,56 @@ public class StroopTask : BaseTask
             Debug.LogError("Trial data is not in expected format");
             GenerateFallbackTrialData();
         }
+        
+        Debug.Log($"GenerateTrialParameters: AFTER - Word='{currentWord}', Correct='{correctAnswer}'");
+    }
+
+    /// <summary>
+    /// Get the current block type from session settings
+    /// </summary>
+    private string GetCurrentBlockType()
+    {
+        int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
+        
+        // First try to get from session settings
+        try
+        {
+            var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
+            Debug.Log($"GetCurrentBlockType: Block settings keys: {string.Join(", ", blockSettings.Keys)}");
+            string blockType = blockSettings.GetString("target_location");
+            Debug.Log($"GetCurrentBlockType: Found block type '{blockType}' from session settings for block {blockNumber}");
+            return blockType;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"GetCurrentBlockType: Could not get block type from session settings: {e.Message}");
+        }
+        
+        // Try to get from the per_block_target_location array in session settings
+        try
+        {
+            var perBlockTargetLocation = ExperimentController.Instance.Session.settings.GetStringList("per_block_target_location");
+            if (perBlockTargetLocation != null && blockNumber > 0 && blockNumber <= perBlockTargetLocation.Count)
+            {
+                string blockType = perBlockTargetLocation[blockNumber - 1]; // Convert to 0-based index
+                Debug.Log($"GetCurrentBlockType: Found block type '{blockType}' from per_block_target_location array for block {blockNumber}");
+                return blockType;
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"GetCurrentBlockType: Could not get block type from per_block_target_location: {e.Message}");
+        }
+        
+        // Final fallback to hardcoded block number-based detection
+        string fallbackType;
+        if (blockNumber == 3) fallbackType = "direction_same";
+        else if (blockNumber == 4) fallbackType = "direction_opposite";
+        else if (blockNumber == 2) fallbackType = "incongruent";
+        else fallbackType = "congruent";
+        
+        Debug.LogWarning($"GetCurrentBlockType: Using hardcoded fallback block type '{fallbackType}' for block {blockNumber}");
+        return fallbackType;
     }
 
     /// <summary>
@@ -810,46 +913,92 @@ public class StroopTask : BaseTask
     {
         Debug.LogWarning("=== GENERATING FALLBACK TRIAL DATA ===");
         
-        // Simple fallback trial data
-        string[] words = { "RED", "BLUE", "GREEN", "YELLOW" };
-        string[] colors = { "red", "blue", "green", "yellow" };
-        
-        // Use trial number to determine word and color
+        string blockType = GetCurrentBlockType();
         int trialIndex = ExperimentController.Instance.Session.CurrentTrial.numberInBlock - 1;
-        currentWord = words[trialIndex % words.Length];
-        string colorName = colors[trialIndex % colors.Length];
-        correctAnswer = colorName; // For fallback, correct answer is the color name
         
-        // Convert color name to Unity Color
-        if (colorMap.ContainsKey(colorName))
+        if (blockType == "direction_same" || blockType == "direction_opposite")
         {
-            currentColor = colorMap[colorName];
+            // Direction-based fallback trial data
+            string[] directions = { "up", "down", "left", "right" };
+            currentDirection = directions[trialIndex % directions.Length];
+            currentWord = directionMap.ContainsKey(currentDirection) ? directionMap[currentDirection] : currentDirection;
+            currentColor = Color.white;
+            
+            // For direction_same: same direction, for direction_opposite: opposite direction
+            if (blockType == "direction_same")
+            {
+                correctAnswer = currentDirection;
+            }
+            else // direction_opposite
+            {
+                correctAnswer = oppositeDirectionMap.ContainsKey(currentDirection) ? oppositeDirectionMap[currentDirection] : currentDirection;
+            }
+            
+            // Store trial data
+            presentedWords.Add(currentWord);
+            presentedColors.Add(""); // Empty for direction trials
+            presentedDirections.Add(currentDirection);
+            correctAnswers.Add(correctAnswer);
+            
+            Debug.Log($"Fallback direction trial data: Direction='{currentDirection}', Arrow='{currentWord}', Correct='{correctAnswer}'");
         }
         else
         {
-            currentColor = Color.white;
+            // Color-based fallback trial data
+            string[] words = { "RED", "BLUE", "GREEN", "YELLOW" };
+            string[] colors = { "red", "blue", "green", "yellow" };
+            
+            currentWord = words[trialIndex % words.Length];
+            string colorName = colors[trialIndex % colors.Length];
+            correctAnswer = colorName; // For fallback, correct answer is the color name
+            
+            // Convert color name to Unity Color
+            if (colorMap.ContainsKey(colorName))
+            {
+                currentColor = colorMap[colorName];
+            }
+            else
+            {
+                currentColor = Color.white;
+            }
+            
+            // Store trial data
+            presentedWords.Add(currentWord);
+            presentedColors.Add(colorName);
+            presentedDirections.Add(""); // Empty for color trials
+            correctAnswers.Add(correctAnswer);
+            
+            Debug.Log($"Fallback trial data: Word='{currentWord}', Color={colorName}, Correct='{correctAnswer}'");
         }
-        
-        // Store trial data
-        presentedWords.Add(currentWord);
-        presentedColors.Add(colorName);
-        correctAnswers.Add(correctAnswer);
-        
-        Debug.Log($"Fallback trial data: Word='{currentWord}', Color={colorName}, Correct='{correctAnswer}'");
     }
 
     private void DisplayWord()
     {
         wordText.text = currentWord;
         
+        // Check if this is a direction-based block and increase font size for arrows
+        string blockType = GetCurrentBlockType();
+        Debug.Log($"DisplayWord: Block type '{blockType}', displaying text '{currentWord}'");
+        if (blockType == "direction_same" || blockType == "direction_opposite")
+        {
+            // Make arrows bigger for direction blocks
+            wordText.fontSize = 200f; // Increase from default size
+            Debug.Log($"Direction block detected - setting font size to 200 for better arrow visibility");
+        }
+        else
+        {
+            // Reset to default font size for color blocks
+            wordText.fontSize = 100f; // Default size for color words
+        }
+        
         // Try multiple approaches to set the color
         wordText.color = currentColor;
         wordText.faceColor = currentColor;
         
-        // Force TextMeshPro to update the color
+        // Force TextMeshPro to update the color and size
         wordText.ForceMeshUpdate();
         
-        Debug.Log($"DisplayWord: Text='{currentWord}', Color={currentColor}, CorrectAnswer='{correctAnswer}'");
+        Debug.Log($"DisplayWord: Text='{currentWord}', Color={currentColor}, CorrectAnswer='{correctAnswer}', FontSize={wordText.fontSize}");
         Debug.Log($"Color RGB values: R={currentColor.r}, G={currentColor.g}, B={currentColor.b}, A={currentColor.a}");
         Debug.Log($"WordText component found: {wordText != null}");
         if (wordText != null)
@@ -874,56 +1023,8 @@ public class StroopTask : BaseTask
             int trialNumber = ExperimentController.Instance.Session.CurrentTrial.numberInBlock;
             int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
             
-            // Try to get block type from session settings
-            string blockType = "congruent"; // default
-            try
-            {
-                // Try to get block type from current block settings
-                var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
-                try
-                {
-                    // First try to get block_type directly
-                    blockType = blockSettings.GetString("block_type");
-                    Debug.Log($"Found block_type in settings: {blockType}");
-                }
-                catch
-                {
-                    try
-                    {
-                        // Try to get from target_location (this is what the JSON uses)
-                        string targetLocation = blockSettings.GetString("target_location");
-                        Debug.Log($"Found target_location in settings: {targetLocation}");
-                        if (targetLocation != null && (targetLocation == "congruent" || targetLocation == "incongruent"))
-                        {
-                            blockType = targetLocation;
-                        }
-                    }
-                    catch
-                    {
-                        try
-                        {
-                            string taskType = blockSettings.GetString("task");
-                            Debug.Log($"Found task in settings: {taskType}");
-                            if (taskType.ToLower().Contains("incongruent"))
-                            {
-                                blockType = "incongruent";
-                            }
-                        }
-                        catch
-                        {
-                            // If we can't determine block type, try alternating
-                            blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
-                            Debug.Log($"Using alternating block type: {blockType} (block {blockNumber})");
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // If we can't determine block type, try alternating
-                blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
-                Debug.Log($"Using alternating block type (fallback): {blockType} (block {blockNumber})");
-            }
+            // Use the GetCurrentBlockType method for consistent block type detection
+            string blockType = GetCurrentBlockType();
             
             currentTrialName = $"{blockType}_trial_{trialNumber}";
             Debug.LogWarning($"trial_name not found, using generated name: {currentTrialName}");
@@ -939,54 +1040,66 @@ public class StroopTask : BaseTask
                     
                     if (currentTrialData != null)
                     {
-                        Debug.Log($"Found trial data for buttons: {currentTrialName}");
+                        // Debug.Log($"Found trial data for buttons: {currentTrialName}");
                         
-                        // Get button options from JSON
-                        var buttonOptionsJson = currentTrialData["button_options"];
+                        // Check if this is a direction-based block
+                        string blockType = GetCurrentBlockType();
                         List<string> buttonOptions = new List<string>();
-                    
-                    // Convert JSON array to List<string> - handle as object array
-                    if (buttonOptionsJson is System.Collections.IList jsonArray)
-                    {
-                        foreach (var item in jsonArray)
+                        
+                        if (blockType == "direction_same" || blockType == "direction_opposite")
                         {
-                            buttonOptions.Add(item.ToString());
+                            // For direction blocks, use direction names as button options
+                            buttonOptions = new List<string> { "up", "down", "left", "right" };
+                            // Debug.Log($"Direction block button options: [{string.Join(", ", buttonOptions)}]");
                         }
-                        Debug.Log($"Button options from JSON: [{string.Join(", ", buttonOptions)}]");
-                    }
-                    else
-                    {
-                        Debug.LogError($"Button options is not a list: {buttonOptionsJson?.GetType()}");
-                    }
-                    
-                        // Update button texts with options from JSON
+                        else
+                        {
+                            // For color blocks, get button options from JSON
+                            var buttonOptionsJson = currentTrialData["button_options"];
+                            
+                            // Convert JSON array to List<string> - handle as object array
+                            if (buttonOptionsJson is System.Collections.IList jsonArray)
+                            {
+                                foreach (var item in jsonArray)
+                                {
+                                    buttonOptions.Add(item.ToString());
+                                }
+                                // Debug.Log($"Button options from JSON: [{string.Join(", ", buttonOptions)}]");
+                            }
+                            else
+                            {
+                                Debug.LogError($"Button options is not a list: {buttonOptionsJson?.GetType()}");
+                            }
+                        }
+                        
+                        // Update button texts with options
                         for (int i = 0; i < buttonTexts.Count && i < buttonOptions.Count; i++)
                         {
                             if (buttonTexts[i] != null)
                             {
                                 buttonTexts[i].text = buttonOptions[i];
-                                Debug.Log($"Button {i} text set to: {buttonOptions[i]}");
+                                // Debug.Log($"Button {i} text set to: {buttonOptions[i]}");
                             }
                         }
                     
-                    // Update button labels for collision detection
-                    buttonLabels.Clear();
-                    buttonLabels.AddRange(buttonOptions);
-                    
-                    // Update ButtonCollisionHandler labels
-                    for (int i = 0; i < buttonObjects.Count && i < buttonOptions.Count; i++)
-                    {
-                        if (buttonObjects[i] != null)
+                        // Update button labels for collision detection
+                        buttonLabels.Clear();
+                        buttonLabels.AddRange(buttonOptions);
+                        
+                        // Update ButtonCollisionHandler labels
+                        for (int i = 0; i < buttonObjects.Count && i < buttonOptions.Count; i++)
                         {
-                            ButtonCollisionHandler handler = buttonObjects[i].GetComponent<ButtonCollisionHandler>();
-                            if (handler != null)
+                            if (buttonObjects[i] != null)
                             {
-                                handler.Initialize(this, buttonOptions[i]);
+                                ButtonCollisionHandler handler = buttonObjects[i].GetComponent<ButtonCollisionHandler>();
+                                if (handler != null)
+                                {
+                                    handler.Initialize(this, buttonOptions[i]);
+                                }
                             }
                         }
-                    }
-                    
-                    Debug.Log($"Button setup from JSON: Correct='{correctAnswer}', Options=[{string.Join(", ", buttonOptions)}]");
+                        
+                        // Debug.Log($"Button setup from JSON: Correct='{correctAnswer}', Options=[{string.Join(", ", buttonOptions)}]");
                 }
                 else
                 {
@@ -1014,8 +1127,21 @@ public class StroopTask : BaseTask
     {
         Debug.LogWarning("=== SETTING UP FALLBACK BUTTONS ===");
         
-        // Simple fallback button options
-        string[] buttonOptions = { "red", "blue", "green", "yellow" };
+        string blockType = GetCurrentBlockType();
+        string[] buttonOptions;
+        
+        if (blockType == "direction_same" || blockType == "direction_opposite")
+        {
+            // Direction-based fallback button options
+            buttonOptions = new string[] { "up", "down", "left", "right" };
+            // Debug.Log($"Direction block fallback button options: [{string.Join(", ", buttonOptions)}]");
+        }
+        else
+        {
+            // Color-based fallback button options
+            buttonOptions = new string[] { "red", "blue", "green", "yellow" };
+            // Debug.Log($"Color block fallback button options: [{string.Join(", ", buttonOptions)}]");
+        }
         
         // Update button texts with fallback options
         for (int i = 0; i < buttonTexts.Count && i < buttonOptions.Length; i++)
@@ -1043,7 +1169,7 @@ public class StroopTask : BaseTask
             }
         }
         
-        Debug.Log($"Fallback button setup: Options=[{string.Join(", ", buttonOptions)}]");
+        // Debug.Log($"Fallback button setup: Options=[{string.Join(", ", buttonOptions)}]");
     }
 
     private void OnButtonClick(int buttonIndex)
@@ -1116,13 +1242,14 @@ public class StroopTask : BaseTask
         yield return new WaitForSeconds(0.5f);
         
         // Check if we've completed all trials in this block using ExperimentController
-        List<int> trialsPerBlock = ExperimentController.Instance.Session.CurrentBlock.settings.GetIntList("trials_in_block");
+        List<int> trialsPerBlock = ExperimentController.Instance.Session.settings.GetIntList("trials_in_block");
         int currentTrialInBlock = ExperimentController.Instance.Session.CurrentTrial.numberInBlock;
         int trialsInCurrentBlock = trialsPerBlock[ExperimentController.Instance.Session.currentBlockNum - 1];
         
         Debug.Log($"Trial check - currentTrialInBlock: {currentTrialInBlock}, trialsInCurrentBlock: {trialsInCurrentBlock}");
         Debug.Log($"Current block number: {ExperimentController.Instance.Session.currentBlockNum}");
         Debug.Log($"Total blocks: {ExperimentController.Instance.Session.blocks.Count}");
+        Debug.Log($"Trials per block array: [{string.Join(", ", trialsPerBlock)}]");
         
         if (currentTrialInBlock >= trialsInCurrentBlock)
         {
@@ -1291,7 +1418,7 @@ public class StroopTask : BaseTask
         {
             if (buttonObjects[i] != null)
             {
-                Debug.Log($"Setting up button {i}: {buttonObjects[i].name}");
+                // Debug.Log($"Setting up button {i}: {buttonObjects[i].name}");
                 
                 // Find the Goal Mesh child object (where MultipleTarget should be)
                 Transform goalMeshTransform = buttonObjects[i].transform.Find("LOGoalMesh") ?? 
@@ -1314,18 +1441,18 @@ public class StroopTask : BaseTask
                 
                 if (goalMeshTransform != null)
                 {
-                    Debug.Log($"Found Goal Mesh: {goalMeshTransform.name}");
+                    // Debug.Log($"Found Goal Mesh: {goalMeshTransform.name}");
                     
                     // Add MultipleTarget component to the Goal Mesh object
                     MultipleTarget multipleTarget = goalMeshTransform.GetComponent<MultipleTarget>();
                     if (multipleTarget == null)
                     {
                         multipleTarget = goalMeshTransform.gameObject.AddComponent<MultipleTarget>();
-                        Debug.Log($"Added MultipleTarget component to {goalMeshTransform.name}");
+                        // Debug.Log($"Added MultipleTarget component to {goalMeshTransform.name}");
                     }
                     else
                     {
-                        Debug.Log($"Goal Mesh already has MultipleTarget component");
+                        // Debug.Log($"Goal Mesh already has MultipleTarget component");
                     }
                     
                     // Clear existing tools and add VR hands as tools
@@ -1334,24 +1461,24 @@ public class StroopTask : BaseTask
                     if (directRight != null)
                     {
                         multipleTarget.tools.Add(directRight);
-                        Debug.Log($"Added {directRight.name} as tool to {goalMeshTransform.name}");
+                        // Debug.Log($"Added {directRight.name} as tool to {goalMeshTransform.name}");
                     }
                     else
                     {
-                        Debug.LogWarning($"directRight is null - cannot add to {goalMeshTransform.name}");
+                        // Debug.LogWarning($"directRight is null - cannot add to {goalMeshTransform.name}");
                     }
                     
                     if (directLeft != null)
                     {
                         multipleTarget.tools.Add(directLeft);
-                        Debug.Log($"Added {directLeft.name} as tool to {goalMeshTransform.name}");
+                        // Debug.Log($"Added {directLeft.name} as tool to {goalMeshTransform.name}");
                     }
                     else
                     {
-                        Debug.LogWarning($"directLeft is null - cannot add to {goalMeshTransform.name}");
+                        // Debug.LogWarning($"directLeft is null - cannot add to {goalMeshTransform.name}");
                     }
                     
-                    Debug.Log($"Goal Mesh {goalMeshTransform.name} now has {multipleTarget.tools.Count} tools registered");
+                    // Debug.Log($"Goal Mesh {goalMeshTransform.name} now has {multipleTarget.tools.Count} tools registered");
                     
                     // Check colliders on the Goal Mesh object
                     EnsureButtonHasCollider(goalMeshTransform.gameObject, i);
@@ -1441,7 +1568,7 @@ public class StroopTask : BaseTask
                         Debug.Log($"  Colliders on GoalMesh: {colliders.Length}");
                         foreach (var collider in colliders)
                         {
-                            Debug.Log($"    Collider: {collider.GetType().Name}, isTrigger: {collider.isTrigger}, enabled: {collider.enabled}");
+                            // Debug.Log($"    Collider: {collider.GetType().Name}, isTrigger: {collider.isTrigger}, enabled: {collider.enabled}");
                         }
                         
                         // Check for Rigidbody (needed for collision detection)
@@ -1651,16 +1778,16 @@ public class StroopTask : BaseTask
                     if (directRight != null)
                     {
                         multipleTarget.tools.Add(directRight);
-                        Debug.Log($"Added {directRight.name} as tool to {goalColliderTransform.name}");
+                        // Debug.Log($"Added {directRight.name} as tool to {goalColliderTransform.name}");
                     }
                     
                     if (directLeft != null)
                     {
                         multipleTarget.tools.Add(directLeft);
-                        Debug.Log($"Added {directLeft.name} as tool to {goalColliderTransform.name}");
+                        // Debug.Log($"Added {directLeft.name} as tool to {goalColliderTransform.name}");
                     }
                     
-                    Debug.Log($"Goal Collider {goalColliderTransform.name} now has {multipleTarget.tools.Count} tools registered");
+                    // Debug.Log($"Goal Collider {goalColliderTransform.name} now has {multipleTarget.tools.Count} tools registered");
                     
                     // Enable capsule collider for VR mode (disable for 2D cursor mode)
                     CapsuleCollider capsuleCollider = goalColliderTransform.GetComponent<CapsuleCollider>();
@@ -1904,7 +2031,7 @@ public class StroopTask : BaseTask
             // Log existing collider details
             foreach (var collider in colliders)
             {
-                Debug.Log($"  Collider: {collider.GetType().Name}, isTrigger: {collider.isTrigger}, enabled: {collider.enabled}");
+                // Debug.Log($"  Collider: {collider.GetType().Name}, isTrigger: {collider.isTrigger}, enabled: {collider.enabled}");
             }
         }
     }
@@ -1947,20 +2074,15 @@ public class StroopTask : BaseTask
                         {
                             // VR hand is colliding with button - trigger response
                             string buttonLabel = buttonTexts[i].text;
-                            Debug.Log($"VR hand hit button: {buttonLabel}");
+                            // Debug.Log($"VR hand hit button: {buttonLabel}");
                             OnButtonResponse(buttonLabel);
                             break; // Only process one button at a time
                         }
                         
-                        // Debug: Log collision states for troubleshooting
-                        if (Time.frameCount % 60 == 0) // Log every 60 frames (once per second)
-                        {
-                            Debug.Log($"Button {i} ({goalColliderTransform.name}): IsToolColliding={multipleTarget.IsToolCollding}, Tools.Count={multipleTarget.tools.Count}");
-                        }
                     }
                     else
                     {
-                        Debug.LogWarning($"Goal Collider {goalColliderTransform.name} has no MultipleTarget component!");
+                        // Debug.LogWarning($"Goal Collider {goalColliderTransform.name} has no MultipleTarget component!");
                     }
                 }
             }
@@ -2015,6 +2137,7 @@ public class StroopTask : BaseTask
         // Block-specific trial data (arrays for this block only)
         session.CurrentTrial.result["block_presented_words"] = string.Join(",", blockPresentedWords);
         session.CurrentTrial.result["block_presented_colors"] = string.Join(",", blockPresentedColors);
+        session.CurrentTrial.result["block_presented_directions"] = string.Join(",", blockPresentedDirections);
         session.CurrentTrial.result["block_correct_answers"] = string.Join(",", blockCorrectAnswers);
         session.CurrentTrial.result["block_participant_responses"] = string.Join(",", blockParticipantResponses);
         session.CurrentTrial.result["block_reaction_times"] = string.Join(",", blockReactionTimes.Select(rt => rt.ToString("F3")));
@@ -2048,6 +2171,7 @@ public class StroopTask : BaseTask
         // Trial-by-trial data
         session.CurrentTrial.result["presented_words"] = string.Join(",", presentedWords);
         session.CurrentTrial.result["presented_colors"] = string.Join(",", presentedColors);
+        session.CurrentTrial.result["presented_directions"] = string.Join(",", presentedDirections);
         session.CurrentTrial.result["correct_answers"] = string.Join(",", correctAnswers);
         session.CurrentTrial.result["participant_responses"] = string.Join(",", participantResponses);
         session.CurrentTrial.result["reaction_times"] = string.Join(",", reactionTimes.Select(rt => rt.ToString("F3")));
@@ -2093,6 +2217,7 @@ public class StroopTask : BaseTask
         {
             session.CurrentTrial.result["current_word"] = presentedWords[presentedWords.Count - 1];
             session.CurrentTrial.result["current_color"] = presentedColors[presentedColors.Count - 1];
+            session.CurrentTrial.result["current_direction"] = presentedDirections[presentedDirections.Count - 1];
             session.CurrentTrial.result["current_correct_answer"] = correctAnswers[correctAnswers.Count - 1];
             session.CurrentTrial.result["current_participant_response"] = participantResponses[participantResponses.Count - 1];
             session.CurrentTrial.result["current_reaction_time"] = reactionTimes[reactionTimes.Count - 1];
@@ -2255,7 +2380,7 @@ public class StroopTask : BaseTask
                 try
                 {
                     string targetLocation = blockSettings.GetString("target_location");
-                    if (targetLocation != null && (targetLocation == "congruent" || targetLocation == "incongruent"))
+                    if (targetLocation != null && (targetLocation == "congruent" || targetLocation == "incongruent" || targetLocation == "direction_same" || targetLocation == "direction_opposite"))
                     {
                         blockType = char.ToUpper(targetLocation[0]) + targetLocation.Substring(1);
                     }
@@ -2342,6 +2467,7 @@ public class StroopTask : BaseTask
         blockCorrectResponses.Add(isCorrect);
         blockPresentedWords.Add(currentWord);
         blockPresentedColors.Add(GetColorName(currentColor));
+        blockPresentedDirections.Add(currentDirection);
         blockCorrectAnswers.Add(correctAnswer);
         
         // Update block-specific counters

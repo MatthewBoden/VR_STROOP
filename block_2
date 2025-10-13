@@ -4,8 +4,8 @@
     "task": "Stroop",
     "speed": 0,
     "spawn_delay": 0.5,
-    "target_location": "congruent"
-}_trial_3",
+    "target_location": "direction_same"
+}l_3",
         "congruent_trial_10",
         "congruent_trial_1",
         "congruent_trial_5",
