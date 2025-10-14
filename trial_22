@@ -5,9 +5,9 @@
     "trial_num": 23,
     "block_num": 3,
     "trial_num_in_block": 3,
-    "start_time": 59.721401214599609,
-    "end_time": 62.549976348876953,
-    "completed": true,
+    "start_time": 70.103431701660156,
+    "end_time": 85.298179626464844
+}    "completed": true,
     "response": "left",
     "correct": true,
     "reaction_time": 1.1370201110839844
