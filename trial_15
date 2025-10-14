@@ -5,12 +5,11 @@
     "trial_num": 16,
     "block_num": 2,
     "trial_num_in_block": 6,
-    "start_time": 49.271751403808594,
-    "end_time": 51.812850952148438,
+    "start_time": 38.892601013183594,
+    "end_time": 40.433277130126953,
     "completed": true,
     "response": "blue",
     "correct": false,
-    "reaction_time": 0.901641845703125
-}
+    "reaction_time": 0.01427459716796875
 }
 }

@@ -919,7 +919,7 @@ public class StroopTask : BaseTask
         if (blockType == "direction_same" || blockType == "direction_opposite")
         {
             // Direction-based fallback trial data
-            string[] directions = { "up", "down", "left", "right" };
+            string[] directions = {"down", "up", "left", "right" };
             currentDirection = directions[trialIndex % directions.Length];
             currentWord = directionMap.ContainsKey(currentDirection) ? directionMap[currentDirection] : currentDirection;
             currentColor = Color.white;
@@ -1049,7 +1049,7 @@ public class StroopTask : BaseTask
                         if (blockType == "direction_same" || blockType == "direction_opposite")
                         {
                             // For direction blocks, use direction names as button options
-                            buttonOptions = new List<string> { "up", "down", "left", "right" };
+                            buttonOptions = new List<string> { "down", "up", "left", "right" };
                             // Debug.Log($"Direction block button options: [{string.Join(", ", buttonOptions)}]");
                         }
                         else
@@ -1133,7 +1133,7 @@ public class StroopTask : BaseTask
         if (blockType == "direction_same" || blockType == "direction_opposite")
         {
             // Direction-based fallback button options
-            buttonOptions = new string[] { "up", "down", "left", "right" };
+            buttonOptions = new string[] { "down", "up", "left", "right" };
             // Debug.Log($"Direction block fallback button options: [{string.Join(", ", buttonOptions)}]");
         }
         else
