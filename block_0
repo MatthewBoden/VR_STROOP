@@ -1,10 +1,11 @@
 {
-    "use_vr": true,
-    "input_name": "vr_controller",
+    "use_vr": false,
+    "input_name": "mouse",
     "task": "Stroop",
     "speed": 0,
     "spawn_delay": 0.5,
     "target_location": "congruent"
+}ent"
 }_trial_3",
         "congruent_trial_7",
         "congruent_trial_4",
