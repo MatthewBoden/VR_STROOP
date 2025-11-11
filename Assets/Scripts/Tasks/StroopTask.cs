@@ -865,6 +865,34 @@ public class StroopTask : BaseTask
     {
         int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
         
+        // Check if this is a practice block
+        try
+        {
+            var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
+            if (blockSettings.ContainsKey("is_practice") && blockSettings.GetBool("is_practice"))
+            {
+                // For practice blocks, determine type from trial name
+                try
+                {
+                    string trialName = ExperimentController.Instance.Session.CurrentTrial.settings.GetString("trial_name");
+                    if (trialName.StartsWith("practice_congruent"))
+                        return "congruent";
+                    else if (trialName.StartsWith("practice_incongruent"))
+                        return "incongruent";
+                    else if (trialName.StartsWith("practice_direction_same"))
+                        return "direction_same";
+                    else if (trialName.StartsWith("practice_direction_opposite"))
+                        return "direction_opposite";
+                }
+                catch
+                {
+                    // Fallback for practice block
+                    return "congruent";
+                }
+            }
+        }
+        catch { }
+        
         // First try to get from session settings
         try
         {
@@ -880,13 +908,21 @@ public class StroopTask : BaseTask
         }
         
         // Try to get from the per_block_target_location array in session settings
+        // Note: Adjust block number if practice block exists (practice block is block 0, so subtract 1)
         try
         {
             var perBlockTargetLocation = ExperimentController.Instance.Session.settings.GetStringList("per_block_target_location");
-            if (perBlockTargetLocation != null && blockNumber > 0 && blockNumber <= perBlockTargetLocation.Count)
+            // Check if practice block exists (first block would be practice)
+            bool hasPracticeBlock = ExperimentController.Instance.Session.blocks.Count > 0 && 
+                                    ExperimentController.Instance.Session.blocks[0].settings.ContainsKey("is_practice") &&
+                                    ExperimentController.Instance.Session.blocks[0].settings.GetBool("is_practice");
+            
+            int adjustedBlockNumber = hasPracticeBlock ? blockNumber - 1 : blockNumber;
+            
+            if (perBlockTargetLocation != null && adjustedBlockNumber > 0 && adjustedBlockNumber <= perBlockTargetLocation.Count)
             {
-                string blockType = perBlockTargetLocation[blockNumber - 1]; // Convert to 0-based index
-                Debug.Log($"GetCurrentBlockType: Found block type '{blockType}' from per_block_target_location array for block {blockNumber}");
+                string blockType = perBlockTargetLocation[adjustedBlockNumber - 1]; // Convert to 0-based index
+                Debug.Log($"GetCurrentBlockType: Found block type '{blockType}' from per_block_target_location array for block {blockNumber} (adjusted: {adjustedBlockNumber})");
                 return blockType;
             }
         }
@@ -896,13 +932,19 @@ public class StroopTask : BaseTask
         }
         
         // Final fallback to hardcoded block number-based detection
+        // Adjust for practice block
+        bool hasPractice = ExperimentController.Instance.Session.blocks.Count > 0 && 
+                          ExperimentController.Instance.Session.blocks[0].settings.ContainsKey("is_practice") &&
+                          ExperimentController.Instance.Session.blocks[0].settings.GetBool("is_practice");
+        int fallbackBlockNum = hasPractice ? blockNumber - 1 : blockNumber;
+        
         string fallbackType;
-        if (blockNumber == 3) fallbackType = "direction_same";
-        else if (blockNumber == 4) fallbackType = "direction_opposite";
-        else if (blockNumber == 2) fallbackType = "incongruent";
+        if (fallbackBlockNum == 3) fallbackType = "direction_same";
+        else if (fallbackBlockNum == 4) fallbackType = "direction_opposite";
+        else if (fallbackBlockNum == 2) fallbackType = "incongruent";
         else fallbackType = "congruent";
         
-        Debug.LogWarning($"GetCurrentBlockType: Using hardcoded fallback block type '{fallbackType}' for block {blockNumber}");
+        Debug.LogWarning($"GetCurrentBlockType: Using hardcoded fallback block type '{fallbackType}' for block {blockNumber} (fallback block num: {fallbackBlockNum})");
         return fallbackType;
     }
 
@@ -2114,27 +2156,69 @@ public class StroopTask : BaseTask
         base.TaskEnd();
     }
 
+    /// <summary>
+    /// Logs all trial parameters and results to the UXF session for data export.
+    /// This method is called at the end of each trial to save all relevant data.
+    /// </summary>
     public override void LogParameters()
     {
         Session session = ExperimentController.Instance.Session;
 
-        // Basic trial information - using ExperimentController for trial/block data
-        session.CurrentTrial.result["block_number"] = ExperimentController.Instance.Session.currentBlockNum;
+        // ============================================
+        // BASIC TRIAL INFORMATION
+        // ============================================
+        // Log basic trial and block identifiers, along with cumulative statistics
+        // Check if this is a practice block - if so, set block_number to 0 for output file
+        bool isPracticeBlock = false;
+        try
+        {
+            var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
+            isPracticeBlock = blockSettings.ContainsKey("is_practice") && blockSettings.GetBool("is_practice");
+        }
+        catch { }
+        
+        if (isPracticeBlock)
+        {
+            // Practice block should be labeled as block 0 in the output file
+            session.CurrentTrial.result["block_number"] = 0;
+        }
+        else
+        {
+            // For regular blocks, adjust block number if practice block exists
+            // This ensures main blocks are numbered 1-4 in the output file
+            int displayBlockNum = ExperimentController.Instance.Session.currentBlockNum;
+            bool hasPractice = ExperimentController.Instance.Session.blocks.Count > 0 && 
+                              ExperimentController.Instance.Session.blocks[0].settings.ContainsKey("is_practice") &&
+                              ExperimentController.Instance.Session.blocks[0].settings.GetBool("is_practice");
+            if (hasPractice)
+            {
+                displayBlockNum = ExperimentController.Instance.Session.currentBlockNum - 1;
+            }
+            session.CurrentTrial.result["block_number"] = displayBlockNum;
+        }
+        
         session.CurrentTrial.result["trial_in_block"] = ExperimentController.Instance.Session.CurrentTrial.numberInBlock;
-        session.CurrentTrial.result["total_correct"] = totalCorrect;
-        session.CurrentTrial.result["total_score"] = totalScore;
+        session.CurrentTrial.result["total_correct"] = totalCorrect; // Total correct responses across all trials
+        session.CurrentTrial.result["total_score"] = totalScore; // Total score accumulated across all trials
         session.CurrentTrial.result["accuracy_percentage"] = completedTrials > 0 ? (float)totalCorrect / completedTrials * 100f : 0f;
         session.CurrentTrial.result["average_reaction_time"] = completedTrials > 0 ? totalReactionTime / completedTrials : 0f;
-        session.CurrentTrial.result["total_time"] = endTime - startTime;
+        session.CurrentTrial.result["total_time"] = endTime - startTime; // Total time elapsed since experiment start
         
-        // Block-specific data (resets each block)
-        session.CurrentTrial.result["block_total_correct"] = blockCorrect;
-        session.CurrentTrial.result["block_total_trials"] = blockReactionTimes.Count;
+        // ============================================
+        // BLOCK-SPECIFIC DATA (resets each block)
+        // ============================================
+        // These values reset at the start of each new block
+        session.CurrentTrial.result["block_total_correct"] = blockCorrect; // Correct responses in current block only
+        session.CurrentTrial.result["block_total_trials"] = blockReactionTimes.Count; // Number of trials completed in current block
         session.CurrentTrial.result["block_accuracy_percentage"] = blockReactionTimes.Count > 0 ? (float)blockCorrect / blockReactionTimes.Count * 100f : 0f;
         session.CurrentTrial.result["block_average_reaction_time"] = blockReactionTimes.Count > 0 ? blockTotalReactionTime / blockReactionTimes.Count : 0f;
-        session.CurrentTrial.result["block_total_time"] = Time.time - blockStartTime;
+        session.CurrentTrial.result["block_total_time"] = Time.time - blockStartTime; // Time elapsed in current block
         
-        // Block-specific trial data (arrays for this block only)
+        // ============================================
+        // BLOCK-SPECIFIC TRIAL DATA (arrays for this block only)
+        // ============================================
+        // These arrays contain data only for trials within the current block
+        // Data is comma-separated for CSV export
         session.CurrentTrial.result["block_presented_words"] = string.Join(",", blockPresentedWords);
         session.CurrentTrial.result["block_presented_colors"] = string.Join(",", blockPresentedColors);
         session.CurrentTrial.result["block_presented_directions"] = string.Join(",", blockPresentedDirections);
@@ -2143,10 +2227,14 @@ public class StroopTask : BaseTask
         session.CurrentTrial.result["block_reaction_times"] = string.Join(",", blockReactionTimes.Select(rt => rt.ToString("F3")));
         session.CurrentTrial.result["block_correct_responses"] = string.Join(",", blockCorrectResponses.Select(cr => cr.ToString()));
 
-        // Controller information
+        // ============================================
+        // CONTROLLER INFORMATION
+        // ============================================
+        // Log whether the experiment is running in VR or 2D mode
         if (ExperimentController.Instance.UseVR)
         {
             session.CurrentTrial.result["controller_type"] = "vr_controller";
+            // Log VR participant spawn location if available
             if (vrPos != null)
             {
                 session.CurrentTrial.result["participant_spawn_location_x"] = vrPos.transform.position.x;
@@ -2159,8 +2247,11 @@ public class StroopTask : BaseTask
             session.CurrentTrial.result["controller_type"] = "mouse";
         }
 
-        // Hand tracking data
-        session.CurrentTrial.result["hand"] = string.Join(",", hittingHand);
+        // ============================================
+        // HAND TRACKING DATA
+        // ============================================
+        // Log hand positions throughout the trial (for VR mode) or mouse positions (for 2D mode)
+        session.CurrentTrial.result["hand"] = string.Join(",", hittingHand); // Which hand was used for each response
         session.CurrentTrial.result["left_hand_pos_x"] = string.Join(",", leftHandPos.Select(i => string.Format($"{i.x}")));
         session.CurrentTrial.result["left_hand_pos_y"] = string.Join(",", leftHandPos.Select(i => string.Format($"{i.y}")));
         session.CurrentTrial.result["left_hand_pos_z"] = string.Join(",", leftHandPos.Select(i => string.Format($"{i.z}")));
@@ -2168,7 +2259,11 @@ public class StroopTask : BaseTask
         session.CurrentTrial.result["right_hand_pos_y"] = string.Join(",", rightHandPos.Select(i => string.Format($"{i.y}")));
         session.CurrentTrial.result["right_hand_pos_z"] = string.Join(",", rightHandPos.Select(i => string.Format($"{i.z}")));
 
-        // Trial-by-trial data
+        // ============================================
+        // TRIAL-BY-TRIAL DATA (cumulative across all trials)
+        // ============================================
+        // These arrays contain data for all trials completed so far in the experiment
+        // Data is comma-separated for CSV export
         session.CurrentTrial.result["presented_words"] = string.Join(",", presentedWords);
         session.CurrentTrial.result["presented_colors"] = string.Join(",", presentedColors);
         session.CurrentTrial.result["presented_directions"] = string.Join(",", presentedDirections);
@@ -2177,28 +2272,36 @@ public class StroopTask : BaseTask
         session.CurrentTrial.result["reaction_times"] = string.Join(",", reactionTimes.Select(rt => rt.ToString("F3")));
         session.CurrentTrial.result["correct_responses"] = string.Join(",", correctResponses.Select(cr => cr.ToString()));
 
-        // Block type information - get from actual block settings
-        string blockType = "congruent"; // default
+        // ============================================
+        // BLOCK TYPE INFORMATION
+        // ============================================
+        // Determine the type of block (congruent, incongruent, direction_same, direction_opposite)
+        // Uses multiple fallback methods to ensure we always get a valid block type
+        string blockType = "congruent"; // Default fallback value
         try
         {
             var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
             try
             {
+                // First try: Get block_type directly from block settings
                 blockType = blockSettings.GetString("block_type");
             }
             catch
             {
                 try
                 {
+                    // Second try: Get target_location from block settings (used in JSON config)
                     string targetLocation = blockSettings.GetString("target_location");
                     if (targetLocation != null && (targetLocation == "congruent" || targetLocation == "incongruent"))
                     {
                         blockType = targetLocation;
                     }
+                    // Note: direction_same and direction_opposite are not checked here as they may not be in target_location
                 }
                 catch
                 {
-                    // Fallback to alternating pattern
+                    // Third try: Fallback to alternating pattern based on block number
+                    // Even blocks = incongruent, odd blocks = congruent
                     int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
                     blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
                 }
@@ -2206,7 +2309,7 @@ public class StroopTask : BaseTask
         }
         catch
         {
-            // Fallback to alternating pattern
+            // Final fallback: Use alternating pattern if all other methods fail
             int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
             blockType = (blockNumber % 2 == 0) ? "incongruent" : "congruent";
         }
@@ -2356,56 +2459,143 @@ public class StroopTask : BaseTask
         session.CurrentTrial.result["block_stroop_effect_rt"] = blockStroopEffect;
     }
 
+    /// <summary>
+    /// Updates the scoreboard UI to display current trial information, accuracy, and reaction times.
+    /// Handles both practice blocks and regular blocks with appropriate labeling.
+    /// </summary>
     private void UpdateScoreboard()
     {
-        // Find child objects (requires proper hierarchy structure)
+        // Find child TextMeshProUGUI components in the scoreboard hierarchy
+        // Assumes Scoreboard has child objects named "ScoreTXT" and "TrialTXT"
         TextMeshProUGUI scoreText = Scoreboard.transform.Find("ScoreTXT").GetComponent<TextMeshProUGUI>();
         TextMeshProUGUI trialText = Scoreboard.transform.Find("TrialTXT").GetComponent<TextMeshProUGUI>();
 
+        // Calculate accuracy percentage and average reaction time
         int accuracy = completedTrials > 0 ? (int)((float)totalCorrect / completedTrials * 100) : 0;
         float avgRT = completedTrials > 0 ? totalReactionTime / completedTrials : 0f;
         
-        // Get block type from actual block settings
-        string blockType = "Congruent"; // default
+        // ============================================
+        // DETECT PRACTICE BLOCK
+        // ============================================
+        // Check if the current block is a practice block by looking for the "is_practice" flag
+        bool isPracticeBlock = false;
+        string practiceTrialType = "";
         try
         {
             var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
-            try
+            isPracticeBlock = blockSettings.ContainsKey("is_practice") && blockSettings.GetBool("is_practice");
+            
+            if (isPracticeBlock)
             {
-                string blockTypeLower = blockSettings.GetString("block_type");
-                blockType = char.ToUpper(blockTypeLower[0]) + blockTypeLower.Substring(1);
-            }
-            catch
-            {
+                // For practice blocks, determine the specific trial type from the trial name
+                // Practice trials are named like: "practice_congruent_trial_1", "practice_incongruent_trial_1", etc.
                 try
                 {
-                    string targetLocation = blockSettings.GetString("target_location");
-                    if (targetLocation != null && (targetLocation == "congruent" || targetLocation == "incongruent" || targetLocation == "direction_same" || targetLocation == "direction_opposite"))
-                    {
-                        blockType = char.ToUpper(targetLocation[0]) + targetLocation.Substring(1);
-                    }
+                    string trialName = ExperimentController.Instance.Session.CurrentTrial.settings.GetString("trial_name");
+                    if (trialName.StartsWith("practice_congruent"))
+                        practiceTrialType = "Congruent";
+                    else if (trialName.StartsWith("practice_incongruent"))
+                        practiceTrialType = "Incongruent";
+                    else if (trialName.StartsWith("practice_direction_same"))
+                        practiceTrialType = "Direction Same";
+                    else if (trialName.StartsWith("practice_direction_opposite"))
+                        practiceTrialType = "Direction Opposite";
+                    else
+                        practiceTrialType = "Practice"; // Fallback if trial name doesn't match expected pattern
                 }
                 catch
                 {
-                    // Fallback to alternating pattern
-                    int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
-                    blockType = (blockNumber % 2 == 0) ? "Incongruent" : "Congruent";
+                    practiceTrialType = "Practice"; // Fallback if trial name cannot be retrieved
                 }
             }
         }
-        catch
+        catch { } // Silently handle any errors in practice block detection
+        
+        // ============================================
+        // GET BLOCK TYPE (for non-practice blocks)
+        // ============================================
+        // Determine the block type for regular (non-practice) blocks
+        // Uses multiple fallback methods to ensure we always get a valid block type
+        string blockType = "Congruent"; // Default fallback value
+        if (!isPracticeBlock)
         {
-            // Fallback to alternating pattern
-            int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
-            blockType = (blockNumber % 2 == 0) ? "Incongruent" : "Congruent";
+            try
+            {
+                var blockSettings = ExperimentController.Instance.Session.CurrentBlock.settings;
+                try
+                {
+                    // First try: Get block_type directly from block settings and capitalize first letter
+                    string blockTypeLower = blockSettings.GetString("block_type");
+                    blockType = char.ToUpper(blockTypeLower[0]) + blockTypeLower.Substring(1);
+                }
+                catch
+                {
+                    try
+                    {
+                        // Second try: Get target_location from block settings (used in JSON config)
+                        string targetLocation = blockSettings.GetString("target_location");
+                        if (targetLocation != null && (targetLocation == "congruent" || targetLocation == "incongruent" || targetLocation == "direction_same" || targetLocation == "direction_opposite"))
+                        {
+                            // Capitalize properly, handling multi-word types
+                            if (targetLocation == "direction_same")
+                                blockType = "Direction Same";
+                            else if (targetLocation == "direction_opposite")
+                                blockType = "Direction Opposite";
+                            else
+                                blockType = char.ToUpper(targetLocation[0]) + targetLocation.Substring(1);
+                        }
+                    }
+                    catch
+                    {
+                        // Third try: Fallback to alternating pattern based on block number
+                        // Even blocks = Incongruent, odd blocks = Congruent
+                        int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
+                        blockType = (blockNumber % 2 == 0) ? "Incongruent" : "Congruent";
+                    }
+                }
+            }
+            catch
+            {
+                // Final fallback: Use alternating pattern if all other methods fail
+                int blockNumber = ExperimentController.Instance.Session.currentBlockNum;
+                blockType = (blockNumber % 2 == 0) ? "Incongruent" : "Congruent";
+            }
         }
 
-        // Update the Text fields using ExperimentController data
+        // ============================================
+        // UPDATE SCOREBOARD TEXT
+        // ============================================
+        // Update the score display (same for both practice and regular blocks)
         scoreText.text = $"Score: {totalScore}";
-        trialText.text = $"Block: {ExperimentController.Instance.Session.currentBlockNum} ({blockType})\n" +
-                         $"Trial: {ExperimentController.Instance.Session.CurrentTrial.numberInBlock}\n" +
-                         $"Accuracy: {accuracy}%\n" +
-                         $"Avg RT: {avgRT:F3}s";
+        
+        if (isPracticeBlock)
+        {
+            // Display format for practice blocks: "Practice (TrialType)"
+            // Shows the specific practice trial type (Congruent, Incongruent, etc.)
+            trialText.text = $"Practice ({practiceTrialType})\n" +
+                             $"Trial: {ExperimentController.Instance.Session.CurrentTrial.numberInBlock}\n" +
+                             $"Accuracy: {accuracy}%\n" +
+                             $"Avg RT: {avgRT:F3}s";
+        }
+        else
+        {
+            // Display format for regular blocks: "Block: X (BlockType)"
+            // Adjust block number display: if practice block exists, subtract 1 to show main blocks as 1-4
+            // This ensures that even though practice block is block 1 internally, main blocks display as 1-4
+            int displayBlockNum = ExperimentController.Instance.Session.currentBlockNum;
+            bool hasPractice = ExperimentController.Instance.Session.blocks.Count > 0 && 
+                              ExperimentController.Instance.Session.blocks[0].settings.ContainsKey("is_practice") &&
+                              ExperimentController.Instance.Session.blocks[0].settings.GetBool("is_practice");
+            if (hasPractice)
+            {
+                displayBlockNum = ExperimentController.Instance.Session.currentBlockNum - 1;
+            }
+            
+            trialText.text = $"Block: {displayBlockNum} ({blockType})\n" +
+                             $"Trial: {ExperimentController.Instance.Session.CurrentTrial.numberInBlock}\n" +
+                             $"Accuracy: {accuracy}%\n" +
+                             $"Avg RT: {avgRT:F3}s";
+        }
     }
 
     // Method to handle button responses from the button objects

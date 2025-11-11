@@ -37,7 +37,56 @@ public class ExperimentGenerator : MonoBehaviour
         //list of the number of trials per block
         List<int> trialsPerBlock = session.settings.GetIntList("trials_in_block");
 
-        //set the total number of blocks
+        // Check if practice trials exist and create practice block
+        bool hasPracticeTrials = session.settings.ContainsKey("practice_congruent") || 
+                                  session.settings.ContainsKey("practice_incongruent") ||
+                                  session.settings.ContainsKey("practice_direction_same") ||
+                                  session.settings.ContainsKey("practice_direction_opposite");
+        
+        if (hasPracticeTrials)
+        {
+            // Create practice block with 12 trials (3 of each type)
+            Block practiceBlock = session.CreateBlock(12);
+            practiceBlock.settings.SetValue("use_vr", ExperimentController.Instance.UseVR);
+            practiceBlock.settings.SetValue("task", session.settings.GetStringList("per_block_task")[0]);
+            practiceBlock.settings.SetValue("target_location", "practice");
+            practiceBlock.settings.SetValue("is_practice", true);
+            
+            // Collect all practice trial names
+            List<string> practiceTrialNames = new List<string>();
+            
+            if (session.settings.ContainsKey("practice_congruent"))
+            {
+                var practiceCongruent = session.settings.GetStringList("practice_congruent");
+                practiceTrialNames.AddRange(practiceCongruent);
+            }
+            if (session.settings.ContainsKey("practice_incongruent"))
+            {
+                var practiceIncongruent = session.settings.GetStringList("practice_incongruent");
+                practiceTrialNames.AddRange(practiceIncongruent);
+            }
+            if (session.settings.ContainsKey("practice_direction_same"))
+            {
+                var practiceDirectionSame = session.settings.GetStringList("practice_direction_same");
+                practiceTrialNames.AddRange(practiceDirectionSame);
+            }
+            if (session.settings.ContainsKey("practice_direction_opposite"))
+            {
+                var practiceDirectionOpposite = session.settings.GetStringList("practice_direction_opposite");
+                practiceTrialNames.AddRange(practiceDirectionOpposite);
+            }
+            
+            // Assign practice trial names to practice block trials
+            for (int i = 0; i < practiceBlock.trials.Count && i < practiceTrialNames.Count; i++)
+            {
+                practiceBlock.trials[i].settings.SetValue("trial_name", practiceTrialNames[i]);
+            }
+            
+            ExperimentController.Instance.TotalNumOfTrials += 12;
+            Debug.Log($"Created practice block with {practiceBlock.trials.Count} practice trials");
+        }
+
+        //set the total number of blocks (excluding practice block)
         ExperimentController.Instance.TotalNumOfBlocks = trialsPerBlock.Count;
 
         //loop and create each block
@@ -64,12 +113,25 @@ public class ExperimentGenerator : MonoBehaviour
             //key minus the prefix
             string firstKey = list[0].ToString().Substring(15);
 
-            for (int i = 0; i < perTrialList.Count; i++)
+            // Find which blocks are not practice blocks
+            List<int> nonPracticeBlockIndices = new List<int>();
+            for (int i = 0; i < session.blocks.Count; i++)
             {
+                bool isPracticeBlock = session.blocks[i].settings.ContainsKey("is_practice") && 
+                                     session.blocks[i].settings.GetBool("is_practice");
+                if (!isPracticeBlock)
+                {
+                    nonPracticeBlockIndices.Add(i);
+                }
+            }
+
+            for (int i = 0; i < perTrialList.Count && i < nonPracticeBlockIndices.Count; i++)
+            {
+                int blockIndex = nonPracticeBlockIndices[i];
                 string currKey = perTrialList[i].ToString();
                 if (currKey != null)
                 {
-                    pseudoList.Add(PseudoRandom(currKey, session.blocks[i]));
+                    pseudoList.Add(PseudoRandom(currKey, session.blocks[blockIndex]));
                     List<object> pairList = new List<object>();
                     for (int j = 1; j < list.Count; j++)
                     {
@@ -82,7 +144,7 @@ public class ExperimentGenerator : MonoBehaviour
                             }
 
                             string key = list[j].ToString().Substring(15);
-                            session.blocks[i].settings.SetValue(key, pairList);
+                            session.blocks[blockIndex].settings.SetValue(key, pairList);
                         }
                     }
                 }
@@ -90,7 +152,7 @@ public class ExperimentGenerator : MonoBehaviour
                 {
                     pseudoList.Add(new List<object>());
                 }
-                session.blocks[i].settings.SetValue(firstKey, pseudoList[i]);
+                session.blocks[blockIndex].settings.SetValue(firstKey, pseudoList[i]);
             }
         }
 
@@ -106,10 +168,24 @@ public class ExperimentGenerator : MonoBehaviour
                 string newKey = key.Substring(10);
                 List<object> perBlockList = new List<object>(session.settings.GetObjectList(key));
                 ExperimentController.Instance.ExperimentLists[newKey] = new List<object>(perBlockList);
-                //set the value for each block
+                //set the value for each block (skip practice block if it exists)
+                int blockIndex = 0;
                 for (int i = 0; i < session.blocks.Count; i++)
                 {
-                    session.blocks[i].settings.SetValue(newKey, perBlockList[i]);
+                    // Skip practice block when assigning per_block parameters
+                    bool isPracticeBlock = session.blocks[i].settings.ContainsKey("is_practice") && 
+                                         session.blocks[i].settings.GetBool("is_practice");
+                    if (isPracticeBlock)
+                    {
+                        continue; // Skip practice block
+                    }
+                    
+                    // Only assign if we have enough elements in perBlockList
+                    if (blockIndex < perBlockList.Count)
+                    {
+                        session.blocks[i].settings.SetValue(newKey, perBlockList[blockIndex]);
+                        blockIndex++;
+                    }
                 }
             }
             //for per trial parameters, they will be pseudo randomized and then set
@@ -139,19 +215,32 @@ public class ExperimentGenerator : MonoBehaviour
                 //the resulting list after being pseudo randomized
                 List<object> pseudoList = new List<object>();
                 //loop for each block and pseudo randomize
-                //the count of per trial should be the same as the number of blocks
-                for (int i = 0; i < perTrialCount; i++)
+                //the count of per trial should be the same as the number of blocks (excluding practice)
+                // Find which blocks are not practice blocks
+                List<int> nonPracticeBlockIndices = new List<int>();
+                for (int i = 0; i < session.blocks.Count; i++)
                 {
+                    bool isPracticeBlock = session.blocks[i].settings.ContainsKey("is_practice") && 
+                                         session.blocks[i].settings.GetBool("is_practice");
+                    if (!isPracticeBlock)
+                    {
+                        nonPracticeBlockIndices.Add(i);
+                    }
+                }
+                
+                for (int i = 0; i < perTrialCount && i < nonPracticeBlockIndices.Count; i++)
+                {
+                    int blockIndex = nonPracticeBlockIndices[i];
                     if (perTrialList[i] != null)
                     {
-                        pseudoList.Add(PseudoRandom(perTrialList[i].ToString(), session.blocks[i]));
+                        pseudoList.Add(PseudoRandom(perTrialList[i].ToString(), session.blocks[blockIndex]));
                     }
                     else
                     {
                         pseudoList.Add(new List<object>());
                     }
                     //set the value in the block
-                    session.blocks[i].settings.SetValue(newKey, pseudoList[i]);
+                    session.blocks[blockIndex].settings.SetValue(newKey, pseudoList[i]);
                 }
             }
             //for anything else
