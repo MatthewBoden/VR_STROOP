@@ -640,10 +640,17 @@ public class StroopTask : BaseTask
         {
             var perBlockTargetLocation = ExperimentController.Instance.Session.settings.GetStringList("per_block_target_location");
             Debug.Log($"per_block_target_location array: [{string.Join(", ", perBlockTargetLocation)}]");
-            if (perBlockTargetLocation != null && ExperimentController.Instance.Session.currentBlockNum > 0 && ExperimentController.Instance.Session.currentBlockNum <= perBlockTargetLocation.Count)
+            
+            // Adjust index if practice block exists (practice block is block 1, so subtract 1 more)
+            bool hasPracticeBlock = ExperimentController.Instance.Session.blocks.Count > 0 && 
+                                    ExperimentController.Instance.Session.blocks[0].settings.ContainsKey("is_practice") &&
+                                    ExperimentController.Instance.Session.blocks[0].settings.GetBool("is_practice");
+            int adjustedBlockIndex = hasPracticeBlock ? ExperimentController.Instance.Session.currentBlockNum - 2 : ExperimentController.Instance.Session.currentBlockNum - 1;
+            
+            if (perBlockTargetLocation != null && adjustedBlockIndex >= 0 && adjustedBlockIndex < perBlockTargetLocation.Count)
             {
-                string expectedBlockType = perBlockTargetLocation[ExperimentController.Instance.Session.currentBlockNum - 1];
-                Debug.Log($"Expected block type for Block {ExperimentController.Instance.Session.currentBlockNum}: '{expectedBlockType}'");
+                string expectedBlockType = perBlockTargetLocation[adjustedBlockIndex];
+                Debug.Log($"Expected block type for Block {ExperimentController.Instance.Session.currentBlockNum} (adjusted index: {adjustedBlockIndex}): '{expectedBlockType}'");
                 
                 // DEBUG: Check if this is the first trial of a new block
                 if (ExperimentController.Instance.Session.CurrentTrial.numberInBlock == 1)
@@ -1286,7 +1293,21 @@ public class StroopTask : BaseTask
         // Check if we've completed all trials in this block using ExperimentController
         List<int> trialsPerBlock = ExperimentController.Instance.Session.settings.GetIntList("trials_in_block");
         int currentTrialInBlock = ExperimentController.Instance.Session.CurrentTrial.numberInBlock;
-        int trialsInCurrentBlock = trialsPerBlock[ExperimentController.Instance.Session.currentBlockNum - 1];
+        
+        // Adjust index if practice block exists (practice block is block 1, so subtract 1 more)
+        bool hasPracticeBlock = ExperimentController.Instance.Session.blocks.Count > 0 && 
+                                ExperimentController.Instance.Session.blocks[0].settings.ContainsKey("is_practice") &&
+                                ExperimentController.Instance.Session.blocks[0].settings.GetBool("is_practice");
+        int adjustedBlockIndex = hasPracticeBlock ? ExperimentController.Instance.Session.currentBlockNum - 2 : ExperimentController.Instance.Session.currentBlockNum - 1;
+        
+        // Ensure index is within bounds
+        if (adjustedBlockIndex < 0 || adjustedBlockIndex >= trialsPerBlock.Count)
+        {
+            Debug.LogError($"Index out of bounds for trialsPerBlock: blockNum={ExperimentController.Instance.Session.currentBlockNum}, adjustedIndex={adjustedBlockIndex}, listCount={trialsPerBlock.Count}");
+            adjustedBlockIndex = Mathf.Clamp(adjustedBlockIndex, 0, trialsPerBlock.Count - 1);
+        }
+        
+        int trialsInCurrentBlock = trialsPerBlock[adjustedBlockIndex];
         
         Debug.Log($"Trial check - currentTrialInBlock: {currentTrialInBlock}, trialsInCurrentBlock: {trialsInCurrentBlock}");
         Debug.Log($"Current block number: {ExperimentController.Instance.Session.currentBlockNum}");

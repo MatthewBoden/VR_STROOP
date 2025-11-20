@@ -1,9 +1,9 @@
 {
-    "use_vr": false,
-    "input_name": "mouse",
+    "use_vr": true,
     "task": "Stroop",
-    "speed": 0,
-    "spawn_delay": 0.5,
+    "target_location": "practice",
+    "is_practice": true
+}5,
     "target_location": "congruent"
 }ent"
 }_trial_3",

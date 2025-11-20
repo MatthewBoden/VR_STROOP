@@ -1,11 +1,11 @@
 {
     "use_vr": true,
     "input_name": "vr_controller",
-    "task": "projectile",
-    "rotation": 0,
-    "water_speed": 4,
-    "otherBall_water_speed": 0,
-    "debris_spawn_rate": 2,
+    "task": "Stroop",
+    "speed": 0,
+    "spawn_delay": 0.5,
+    "target_location": "direction_opposite"
+}wn_rate": 2,
     "debris_count": 3,
     "instruction": null,
     "target_angle": [
