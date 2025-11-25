@@ -52,5 +52,5 @@
         "Temp/": true
     },
     "dotnet.preferCSharpExtension": true,
-    "dotnet.defaultSolution": "vr_experiment_framework_v3.sln"
+    "dotnet.defaultSolution": "VR_STROOP-main.sln"
 }

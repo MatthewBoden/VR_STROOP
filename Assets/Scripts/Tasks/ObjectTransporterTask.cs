@@ -388,7 +388,16 @@ public class ObjectTransporterTask : BaseTask
 
         //Setting mesh for grabbed object and visual object
         toolMesh = grabbedObject.GetComponent<MeshFilter>();
-        string meshName = (string) ExperimentController.Instance.ExperimentLists["mesh"][ExperimentController.Instance.Session.currentBlockNum-1];
+        
+        // Adjust index if practice block exists (practice block is block 1, so subtract 1 more)
+        bool hasPracticeBlock = ExperimentController.Instance.Session.blocks.Count > 0 && 
+                                ExperimentController.Instance.Session.blocks[0].settings.ContainsKey("is_practice") &&
+                                ExperimentController.Instance.Session.blocks[0].settings.GetBool("is_practice");
+        int adjustedIndex = hasPracticeBlock ? ExperimentController.Instance.Session.currentBlockNum - 2 : ExperimentController.Instance.Session.currentBlockNum - 1;
+        
+        if (adjustedIndex >= 0 && adjustedIndex < ExperimentController.Instance.ExperimentLists["mesh"].Count)
+        {
+            string meshName = (string) ExperimentController.Instance.ExperimentLists["mesh"][adjustedIndex];
         switch (meshName) 
             {
             case "Cube":
@@ -407,6 +416,11 @@ public class ObjectTransporterTask : BaseTask
                 toolType = 2;
                 break;
 
+            }
+        }
+        else
+        {
+            Debug.LogError($"Index out of bounds for mesh: blockNum={ExperimentController.Instance.Session.currentBlockNum}, adjustedIndex={adjustedIndex}, listCount={ExperimentController.Instance.ExperimentLists["mesh"].Count}");
         }
 
         

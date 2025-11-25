@@ -69,7 +69,7 @@ public class ExperimentController : MonoBehaviour
         // experiment starts and the parameters are made in UXF
         if (isRunning)
         {
-            if (currentTask.Finished)
+            if (currentTask != null && currentTask.Finished)
             {
                 session.EndCurrentTrial();
             }
@@ -242,6 +242,11 @@ public class ExperimentController : MonoBehaviour
             return;
         }
 
+        if (currentTask == null || currentTask.gameObject == null)
+        {
+            return;
+        }
+
         Vector3 pos = new Vector3(0.0f, GameObject.Find("R_Wrist").transform.position.y, 0.0f);
         currentTask.gameObject.transform.position = pos;
         prefabPosition = pos;
@@ -262,8 +267,8 @@ public class ExperimentController : MonoBehaviour
         {
             session.BeginNextTrialSafe();
         }
-        //final trial
-        else if (session.currentTrialNum == totalNumOfTrials) 
+        //final trial - check if we've completed all trials
+        else if (session.currentTrialNum >= totalNumOfTrials) 
         {
             isRunning = false;
             session.End();
@@ -285,9 +290,22 @@ public class ExperimentController : MonoBehaviour
         if (Session.CurrentTrial == Session.CurrentBlock.firstTrial)
         {
             //Set the input device to use
-            string deviceName = (string)expLists["input_name"][session.currentBlockNum - 1];
-            Debug.Log("Input device set as " + deviceName);
-            InputHandler.Instance.UseThisDevice(deviceName);
+            // Adjust index if practice block exists (practice block is block 1, so subtract 1 more)
+            bool hasPracticeBlock = session.blocks.Count > 0 && 
+                                    session.blocks[0].settings.ContainsKey("is_practice") &&
+                                    session.blocks[0].settings.GetBool("is_practice");
+            int adjustedIndex = hasPracticeBlock ? session.currentBlockNum - 2 : session.currentBlockNum - 1;
+            
+            if (adjustedIndex >= 0 && adjustedIndex < expLists["input_name"].Count)
+            {
+                string deviceName = (string)expLists["input_name"][adjustedIndex];
+                Debug.Log("Input device set as " + deviceName);
+                InputHandler.Instance.UseThisDevice(deviceName);
+            }
+            else
+            {
+                Debug.LogError($"Index out of bounds for input_name: blockNum={session.currentBlockNum}, adjustedIndex={adjustedIndex}, listCount={expLists["input_name"].Count}");
+            }
         }
 
         //if the task hasn't been setup yet
@@ -323,8 +341,11 @@ public class ExperimentController : MonoBehaviour
         if (session.CurrentTrial == session.CurrentBlock.lastTrial)
         {
             //end current task and disable
-            currentTask.TaskEnd();
-            currentTask.enabled = false;
+            if (currentTask != null)
+            {
+                currentTask.TaskEnd();
+                currentTask.enabled = false;
+            }
 
             //if there are more blocks to go through
             if (session.CurrentBlock.number < taskPrefabNames.Count)
@@ -346,6 +367,11 @@ public class ExperimentController : MonoBehaviour
                 currentTask = currentTaskPrefab.GetComponent<BaseTask>();
                 currentTask.enabled = true;
                 currentTask.TaskPrefab = currentTaskPrefab;
+            }
+            else
+            {
+                // Last block - clear currentTask reference since it's been destroyed
+                currentTask = null;
             }
         }
         if(session.isApplicationQuitting == false)
